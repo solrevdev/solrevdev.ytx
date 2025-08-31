@@ -1,0 +1,92 @@
+name: Publish NuGet (ytx)
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Version bump type (major|minor|patch)'
+        required: true
+        default: 'patch'
+  push:
+    branches: [ "master" ]
+    paths:
+      - 'src/Ytx/**'
+      - '.github/workflows/publish.yml'
+
+permissions:
+  contents: write
+  packages: read
+
+env:
+  PROJECT_DIR: src/Ytx
+  CSPROJ: src/Ytx/Ytx.csproj
+  NUPKG_DIR: nupkg
+  NUGET_SOURCE: https://api.nuget.org/v3/index.json
+
+jobs:
+  build-pack-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            9.x
+            8.x
+
+      - name: Restore
+        run: dotnet restore $PROJECT_DIR
+
+      - name: Determine and bump version
+        id: bump
+        shell: bash
+        run: |
+          set -euo pipefail
+          CURR=$(grep -oPm1 '(?<=<Version>)[^<]+' "$CSPROJ")
+          echo "Current version: $CURR"
+          IFS='.' read -r MAJ MIN PAT <<< "$CURR"
+          BUMP="${{ github.event.inputs.bump || 'patch' }}"
+          case "$BUMP" in
+            major) MAJ=$((MAJ+1)); MIN=0; PAT=0 ;;
+            minor) MIN=$((MIN+1)); PAT=0 ;;
+            patch|*) PAT=$((PAT+1)) ;;
+          esac
+          NEW="$MAJ.$MIN.$PAT"
+          echo "New version: $NEW"
+          sed -i "s|<Version>$CURR</Version>|<Version>$NEW</Version>|" "$CSPROJ"
+          echo "version=$NEW" >> "$GITHUB_OUTPUT"
+
+      - name: Commit version bump
+        if: ${{ github.ref == 'refs/heads/master' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add ${{ env.CSPROJ }}
+          git commit -m "chore: bump version to ${{ steps.bump.outputs.version }}"
+          git tag "v${{ steps.bump.outputs.version }}"
+          git push --follow-tags
+
+      - name: Build
+        run: dotnet build $PROJECT_DIR -c Release --no-restore
+
+      - name: Pack
+        run: dotnet pack $PROJECT_DIR -c Release --no-build
+
+      - name: Publish to NuGet
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          dotnet nuget push $NUPKG_DIR/*.nupkg \
+            --api-key "$NUGET_API_KEY" \
+            --source "$NUGET_SOURCE" \
+            --skip-duplicate
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.bump.outputs.version }}
+          name: ytx v${{ steps.bump.outputs.version }}
+          generate_release_notes: true

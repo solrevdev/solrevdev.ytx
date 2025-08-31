@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <!-- dotnet tool packaging -->
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>ytx</ToolCommandName>
+    <PackageId>solrevdev.ytx</PackageId>
+
+    <!-- CI auto-bumps this -->
+    <Version>1.0.0</Version>
+
+    <!-- NuGet metadata -->
+    <Authors>solrevdev</Authors>
+    <PackageDescription>Extract YouTube title, description, and transcript (raw + Markdown) as JSON.</PackageDescription>
+    <PackageTags>YouTube;transcript;captions;cli;dotnet-tool;json</PackageTags>
+    <RepositoryUrl>https://github.com/solrevdev/solrevdev.ytx</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/solrevdev/solrevdev.ytx</PackageProjectUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+
+    <!-- where pack puts .nupkg -->
+    <PackageOutputPath>../../nupkg</PackageOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="YoutubeExplode" Version="6.3.12" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+</Project>
