@@ -11,7 +11,7 @@
     <PackageId>solrevdev.ytx</PackageId>
 
     <!-- CI auto-bumps this -->
-    <Version>1.0.1</Version>
+    <Version>1.0.2</Version>
 
     <!-- NuGet metadata -->
     <Authors>solrevdev</Authors>
