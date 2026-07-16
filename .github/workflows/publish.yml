@@ -4,18 +4,31 @@ on:
   workflow_dispatch:
     inputs:
       bump:
-        description: 'Version bump type (major|minor|patch)'
+        description: Version bump type
         required: true
-        default: 'patch'
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+  pull_request:
+    branches: [master]
+    paths:
+      - 'src/Ytx/**'
+      - '.github/workflows/publish.yml'
   push:
-    branches: [ "master" ]
+    branches: [master]
     paths:
       - 'src/Ytx/**'
       - '.github/workflows/publish.yml'
 
 permissions:
-  contents: write
-  packages: read
+  contents: read
+
+concurrency:
+  group: publish-nuget-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   PROJECT_DIR: src/Ytx
@@ -24,70 +37,171 @@ env:
   NUGET_SOURCE: https://api.nuget.org/v3/index.json
 
 jobs:
-  build-pack-publish:
+  validate:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: |
-            10.x
-            9.x
-            8.x
+            8.0.x
+            9.0.x
+            10.0.x
 
       - name: Restore
-        run: dotnet restore $PROJECT_DIR
+        run: dotnet restore "$PROJECT_DIR"
+
+      - name: Build
+        run: dotnet build "$PROJECT_DIR" --configuration Release --no-restore
+
+      - name: Pack
+        run: dotnet pack "$PROJECT_DIR" --configuration Release --no-build
+
+  publish:
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+            10.0.x
 
       - name: Determine and bump version
         id: bump
         shell: bash
+        env:
+          REQUESTED_BUMP: ${{ inputs.bump }}
         run: |
           set -euo pipefail
-          CURR=$(grep -oPm1 '(?<=<Version>)[^<]+' "$CSPROJ")
-          echo "Current version: $CURR"
-          IFS='.' read -r MAJ MIN PAT <<< "$CURR"
-          BUMP="${{ github.event.inputs.bump || 'patch' }}"
-          case "$BUMP" in
-            major) MAJ=$((MAJ+1)); MIN=0; PAT=0 ;;
-            minor) MIN=$((MIN+1)); PAT=0 ;;
-            patch|*) PAT=$((PAT+1)) ;;
-          esac
-          NEW="$MAJ.$MIN.$PAT"
-          echo "New version: $NEW"
-          sed -i "s|<Version>$CURR</Version>|<Version>$NEW</Version>|" "$CSPROJ"
-          echo "version=$NEW" >> "$GITHUB_OUTPUT"
 
-      - name: Commit version bump
-        if: ${{ github.ref == 'refs/heads/master' }}
+          CURRENT=$(sed -n 's:.*<Version>\([^<]*\)</Version>.*:\1:p' "$CSPROJ")
+          if [[ ! "$CURRENT" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "Current version is not a three-part semantic version: $CURRENT" >&2
+            exit 1
+          fi
+
+          MAJOR=${BASH_REMATCH[1]}
+          MINOR=${BASH_REMATCH[2]}
+          PATCH=${BASH_REMATCH[3]}
+          BUMP=${REQUESTED_BUMP:-patch}
+
+          case "$BUMP" in
+            major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+            minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+            patch) PATCH=$((PATCH + 1)) ;;
+            *)
+              echo "Unsupported version bump: $BUMP" >&2
+              exit 1
+              ;;
+          esac
+
+          VERSION="$MAJOR.$MINOR.$PATCH"
+          TAG="v$VERSION"
+          sed -i "s|<Version>$CURRENT</Version>|<Version>$VERSION</Version>|" "$CSPROJ"
+
+          echo "Current version: $CURRENT"
+          echo "Release version: $VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Check release state
+        id: release-state
+        shell: bash
+        env:
+          TAG: ${{ steps.bump.outputs.tag }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add ${{ env.CSPROJ }}
-          git commit -m "chore: bump version to ${{ steps.bump.outputs.version }}"
-          git tag "v${{ steps.bump.outputs.version }}"
-          git push --follow-tags
+          set -euo pipefail
+
+          REMOTE_MASTER=$(git ls-remote origin refs/heads/master | cut -f1)
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            git fetch origin "refs/tags/$TAG:refs/tags/$TAG"
+            TAGGED_VERSION=$(git show "$TAG:$CSPROJ" | sed -n 's:.*<Version>\([^<]*\)</Version>.*:\1:p')
+            if [[ "v$TAGGED_VERSION" != "$TAG" ]]; then
+              echo "Existing tag $TAG does not contain version $TAGGED_VERSION." >&2
+              exit 1
+            fi
+            echo "Tag $TAG already exists; this is a safe retry."
+            echo "tag_exists=true" >> "$GITHUB_OUTPUT"
+          else
+            if [[ "$REMOTE_MASTER" != "$GITHUB_SHA" ]]; then
+              echo "origin/master moved from $GITHUB_SHA to $REMOTE_MASTER; refusing to publish." >&2
+              exit 1
+            fi
+            echo "tag_exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Restore
+        run: dotnet restore "$PROJECT_DIR"
 
       - name: Build
-        run: dotnet build $PROJECT_DIR -c Release --no-restore
+        run: dotnet build "$PROJECT_DIR" --configuration Release --no-restore
 
       - name: Pack
-        run: dotnet pack $PROJECT_DIR -c Release --no-build
+        run: dotnet pack "$PROJECT_DIR" --configuration Release --no-build
+
+      - name: Verify package
+        id: package
+        shell: bash
+        env:
+          VERSION: ${{ steps.bump.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          PACKAGE="$NUPKG_DIR/solrevdev.ytx.$VERSION.nupkg"
+          if [[ ! -f "$PACKAGE" ]]; then
+            echo "Expected package was not created: $PACKAGE" >&2
+            exit 1
+          fi
+          echo "path=$PACKAGE" >> "$GITHUB_OUTPUT"
 
       - name: Publish to NuGet
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+          PACKAGE: ${{ steps.package.outputs.path }}
         run: |
-          dotnet nuget push $NUPKG_DIR/*.nupkg \
+          dotnet nuget push "$PACKAGE" \
             --api-key "$NUGET_API_KEY" \
             --source "$NUGET_SOURCE" \
             --skip-duplicate
 
+      - name: Commit version and tag
+        if: steps.release-state.outputs.tag_exists != 'true'
+        env:
+          TAG: ${{ steps.bump.outputs.tag }}
+          VERSION: ${{ steps.bump.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$CSPROJ"
+          git commit -m "chore: bump version to $VERSION"
+          git tag "$TAG"
+          git push --atomic origin HEAD:refs/heads/master "refs/tags/$TAG"
+
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ steps.bump.outputs.version }}
-          name: ytx v${{ steps.bump.outputs.version }}
-          generate_release_notes: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.bump.outputs.tag }}
+          VERSION: ${{ steps.bump.outputs.version }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "GitHub Release $TAG already exists; no update needed."
+          else
+            gh release create "$TAG" \
+              --verify-tag \
+              --title "ytx v$VERSION" \
+              --generate-notes
+          fi
