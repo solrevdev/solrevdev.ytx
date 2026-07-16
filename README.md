@@ -105,6 +105,9 @@ dotnet restore src/Ytx
 # Build
 dotnet build src/Ytx -c Release
 
+# Run the unit tests
+dotnet test tests/Ytx.Tests -c Release
+
 # Test locally (choose an installed target framework)
 dotnet run --project src/Ytx --framework net10.0 -- "YOUR_YOUTUBE_URL"
 dotnet run --project src/Ytx --framework net10.0 -- --help
@@ -119,6 +122,7 @@ dotnet tool install -g solrevdev.ytx --add-source ./nupkg
 ```
 ├── src/Ytx/Program.cs              # CLI and extraction implementation
 ├── src/Ytx/Ytx.csproj              # Package and target-framework metadata
+├── tests/Ytx.Tests/                 # CLI parsing and formatting unit tests
 ├── .github/workflows/publish.yml   # Validation and release automation
 ├── docs/                            # Additional project documentation
 └── README.md                        # User and maintainer documentation
@@ -128,10 +132,10 @@ dotnet tool install -g solrevdev.ytx --add-source ./nupkg
 
 This project uses `.github/workflows/publish.yml` for validation and publishing:
 
-- Pull requests that change `src/Ytx/**` or the workflow restore, build, and pack the project without publishing.
-- A push to `master` that changes either of those paths automatically performs a **patch** release.
+- Pull requests that change the source, tests, or workflow restore, build, test, and pack the project without publishing.
+- A push to `master` that changes the source or publishing workflow automatically performs a **patch** release.
 - A manual workflow run can instead select a patch, minor, or major release.
-- The publishing job reads the current `<Version>` from `Ytx.csproj`, calculates the next version, builds and packs that version, and publishes it to NuGet using the `NUGET_API_KEY` repository secret.
+- The publishing job reads the current `<Version>` from `Ytx.csproj`, calculates the next version, builds and tests it, packs that version, and publishes it to NuGet using the `NUGET_API_KEY` repository secret.
 - Only after NuGet accepts the package does the job commit the new `<Version>` to `master`, create the matching `vX.Y.Z` tag, and create a GitHub Release.
 - Publishing is serialized, checks that `master` has not moved, and uses `--skip-duplicate` plus release-state checks so a failed run can be retried safely.
 
@@ -143,7 +147,7 @@ Go to Actions → "Publish NuGet (ytx)" → "Run workflow" and choose your versi
 
 ### Maintainer release checklist
 
-1. Build and pack locally with `dotnet build src/Ytx -c Release` and `dotnet pack src/Ytx -c Release`.
+1. Test, build, and pack locally with `dotnet test tests/Ytx.Tests -c Release`, `dotnet build src/Ytx -c Release`, and `dotnet pack src/Ytx -c Release`.
 2. Open a pull request for validation, or push an approved change to `master` for an automatic patch release.
 3. Watch the "Publish NuGet (ytx)" workflow. A successful run publishes NuGet first, then pushes the version commit and tag.
 4. Confirm the new version on NuGet or with `dotnet tool update -g solrevdev.ytx`, then run `ytx --version`.

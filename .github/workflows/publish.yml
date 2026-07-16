@@ -16,6 +16,7 @@ on:
     branches: [master]
     paths:
       - 'src/Ytx/**'
+      - 'tests/Ytx.Tests/**'
       - '.github/workflows/publish.yml'
   push:
     branches: [master]
@@ -32,6 +33,7 @@ concurrency:
 
 env:
   PROJECT_DIR: src/Ytx
+  TEST_PROJECT: tests/Ytx.Tests
   CSPROJ: src/Ytx/Ytx.csproj
   NUPKG_DIR: nupkg
   NUGET_SOURCE: https://api.nuget.org/v3/index.json
@@ -53,10 +55,15 @@ jobs:
             10.0.x
 
       - name: Restore
-        run: dotnet restore "$PROJECT_DIR"
+        run: |
+          dotnet restore "$PROJECT_DIR"
+          dotnet restore "$TEST_PROJECT"
 
       - name: Build
         run: dotnet build "$PROJECT_DIR" --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test "$TEST_PROJECT" --configuration Release --no-restore
 
       - name: Pack
         run: dotnet pack "$PROJECT_DIR" --configuration Release --no-build
@@ -145,10 +152,15 @@ jobs:
           fi
 
       - name: Restore
-        run: dotnet restore "$PROJECT_DIR"
+        run: |
+          dotnet restore "$PROJECT_DIR"
+          dotnet restore "$TEST_PROJECT"
 
       - name: Build
         run: dotnet build "$PROJECT_DIR" --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test "$TEST_PROJECT" --configuration Release --no-restore
 
       - name: Pack
         run: dotnet pack "$PROJECT_DIR" --configuration Release --no-build

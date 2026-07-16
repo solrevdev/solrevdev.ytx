@@ -190,7 +190,7 @@ static class Program
         }
     }
 
-    static (Options? Options, string? Error) ParseOptions(string[] args)
+    internal static (Options? Options, string? Error) ParseOptions(string[] args)
     {
         string? url = null;
         var language = "English";
@@ -255,7 +255,7 @@ static class Program
         return (new Options(url, language, metadataOnly, compact, showHelp, showVersion), null);
     }
 
-    static string GetVersion()
+    internal static string GetVersion()
     {
         var informationalVersion = typeof(Program).Assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
@@ -264,12 +264,12 @@ static class Program
             ?? "unknown";
     }
 
-    static bool LanguageMatches(string code, string name, string preference) =>
+    internal static bool LanguageMatches(string code, string name, string preference) =>
         code.Equals(preference, StringComparison.OrdinalIgnoreCase)
         || name.Equals(preference, StringComparison.OrdinalIgnoreCase)
         || name.Contains(preference, StringComparison.OrdinalIgnoreCase);
 
-    static string ToHhMmSs(TimeSpan ts)
+    internal static string ToHhMmSs(TimeSpan ts)
     {
         int h = (int)ts.TotalHours;
         int m = ts.Minutes;
@@ -277,7 +277,7 @@ static class Program
         return h > 0 ? $"{h:00}:{m:00}:{s:00}" : $"{m:00}:{s:00}";
     }
 
-    static string NormalizeCaption(string text)
+    internal static string NormalizeCaption(string text)
     {
         if (string.IsNullOrWhiteSpace(text)) return "";
         text = Regex.Replace(text, @"\s+", " ").Trim();
