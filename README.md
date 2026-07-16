@@ -31,7 +31,7 @@ dotnet tool install -g solrevdev.ytx
 ### Usage
 
 ```bash
-# Basic usage
+# Existing/primary usage: the URL does not require a switch
 ytx "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 
 # Via JSON input
@@ -39,6 +39,37 @@ echo '{"url":"https://www.youtube.com/watch?v=dQw4w9WgXcQ"}' | ytx
 
 # Save to file
 ytx "https://www.youtube.com/watch?v=dQw4w9WgXcQ" > video-data.json
+
+# Show command help or the installed package version
+ytx --help
+ytx --version
+```
+
+The positional URL and piped JSON forms are the original interfaces and remain supported. `--url` is available when an explicit option is more convenient.
+
+### Options
+
+```text
+-u, --url <value>         Specify the YouTube URL or video ID explicitly
+-l, --language <value>    Prefer captions matching a language name or code
+                          (default: English)
+    --metadata-only       Skip caption retrieval and return metadata only
+-c, --compact             Write compact JSON instead of indented JSON
+-h, -?, --help            Show help and exit
+-v, --version             Show version and exit
+```
+
+Examples:
+
+```bash
+# A bare 11-character YouTube video ID is also accepted
+ytx dQw4w9WgXcQ
+
+# Prefer French captions, falling back to another available caption track
+ytx --language fr "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+
+# Retrieve only the title and description and emit one-line JSON
+ytx --metadata-only --compact "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 ```
 
 ### Upgrade
@@ -74,8 +105,9 @@ dotnet restore src/Ytx
 # Build
 dotnet build src/Ytx -c Release
 
-# Test locally (supports net8.0, net9.0, or net10.0)
-dotnet run --project src/Ytx --framework net10.0 "YOUR_YOUTUBE_URL"
+# Test locally (choose an installed target framework)
+dotnet run --project src/Ytx --framework net10.0 -- "YOUR_YOUTUBE_URL"
+dotnet run --project src/Ytx --framework net10.0 -- --help
 
 # Pack for local installation
 dotnet pack src/Ytx -c Release
@@ -85,27 +117,38 @@ dotnet tool install -g solrevdev.ytx --add-source ./nupkg
 ### Project Structure
 
 ```
-├── src/Ytx/           # Main project source
-├── .github/workflows/ # CI/CD automation
-├── build/             # Build artifacts
-├── data/              # Test data
-├── docs/              # Documentation
-├── tests/             # Unit tests
-└── tools/             # Development tools
+├── src/Ytx/Program.cs              # CLI and extraction implementation
+├── src/Ytx/Ytx.csproj              # Package and target-framework metadata
+├── .github/workflows/publish.yml   # Validation and release automation
+├── docs/                            # Additional project documentation
+└── README.md                        # User and maintainer documentation
 ```
 
 ## CI/CD
 
-This project uses GitHub Actions for automated publishing:
+This project uses `.github/workflows/publish.yml` for validation and publishing:
 
-- **Triggers**: Push to `master` branch or manual workflow dispatch
-- **Version bumping**: Automatically increments version (patch/minor/major)
-- **NuGet publishing**: Publishes to nuget.org using `NUGET_API_KEY` secret
-- **GitHub Releases**: Creates tagged releases with auto-generated notes
+- Pull requests that change `src/Ytx/**` or the workflow restore, build, and pack the project without publishing.
+- A push to `master` that changes either of those paths automatically performs a **patch** release.
+- A manual workflow run can instead select a patch, minor, or major release.
+- The publishing job reads the current `<Version>` from `Ytx.csproj`, calculates the next version, builds and packs that version, and publishes it to NuGet using the `NUGET_API_KEY` repository secret.
+- Only after NuGet accepts the package does the job commit the new `<Version>` to `master`, create the matching `vX.Y.Z` tag, and create a GitHub Release.
+- Publishing is serialized, checks that `master` has not moved, and uses `--skip-duplicate` plus release-state checks so a failed run can be retried safely.
+
+Do not manually edit `<Version>` for an ordinary patch release. Merge or push the source change to `master` and let the workflow bump it exactly once. A version should only be edited deliberately when changing the release process itself.
 
 ### Manual Release
 
 Go to Actions → "Publish NuGet (ytx)" → "Run workflow" and choose your version bump type.
+
+### Maintainer release checklist
+
+1. Build and pack locally with `dotnet build src/Ytx -c Release` and `dotnet pack src/Ytx -c Release`.
+2. Open a pull request for validation, or push an approved change to `master` for an automatic patch release.
+3. Watch the "Publish NuGet (ytx)" workflow. A successful run publishes NuGet first, then pushes the version commit and tag.
+4. Confirm the new version on NuGet or with `dotnet tool update -g solrevdev.ytx`, then run `ytx --version`.
+
+The GitHub repository must have a valid `NUGET_API_KEY` Actions secret. If publication fails, fix the cause and rerun the same workflow; do not manually bump the project version before retrying.
 
 ## Exit Codes
 
