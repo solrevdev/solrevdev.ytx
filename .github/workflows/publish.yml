@@ -72,6 +72,7 @@ jobs:
     if: github.event_name != 'pull_request'
     permissions:
       contents: write
+      id-token: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -180,9 +181,15 @@ jobs:
           fi
           echo "path=$PACKAGE" >> "$GITHUB_OUTPUT"
 
+      - name: Log in to NuGet
+        id: nuget
+        uses: NuGet/login@v1
+        with:
+          user: solrevdev
+
       - name: Publish to NuGet
         env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+          NUGET_API_KEY: ${{ steps.nuget.outputs.NUGET_API_KEY }}
           PACKAGE: ${{ steps.package.outputs.path }}
         run: |
           dotnet nuget push "$PACKAGE" \

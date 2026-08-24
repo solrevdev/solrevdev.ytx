@@ -30,7 +30,7 @@ This repo is a small .NET global tool (PackageId: `solrevdev.ytx`) that extracts
   - When editing runtime logic, run the manual `dotnet run` example with a known video URL to validate end-to-end output.
 
 - CI/Release notes for agents:
-  - GitHub Actions publish workflow triggers on pushes to `master` or manual dispatch. It expects `NUGET_API_KEY` secret for publishing.
+  - GitHub Actions publish workflow triggers on pushes to `master` or manual dispatch. It uses NuGet Trusted Publishing and does not need a stored API key.
   - CI auto-bumps `<Version>` in `src/Ytx/Ytx.csproj`; prefer not to manually edit unless doing a local test/release.
 
 - External dependencies & compatibility:

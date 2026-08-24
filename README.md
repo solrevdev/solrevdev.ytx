@@ -135,7 +135,7 @@ This project uses `.github/workflows/publish.yml` for validation and publishing:
 - Pull requests that change the source, tests, or workflow restore, build, test, and pack the project without publishing.
 - A push to `master` that changes the source or publishing workflow automatically performs a **patch** release.
 - A manual workflow run can instead select a patch, minor, or major release.
-- The publishing job reads the current `<Version>` from `Ytx.csproj`, calculates the next version, builds and tests it, packs that version, and publishes it to NuGet using the `NUGET_API_KEY` repository secret.
+- The publishing job reads the current `<Version>` from `Ytx.csproj`, calculates the next version, builds and tests it, packs that version, and publishes it to NuGet with a short-lived key from NuGet Trusted Publishing.
 - Only after NuGet accepts the package does the job commit the new `<Version>` to `master`, create the matching `vX.Y.Z` tag, and create a GitHub Release.
 - Publishing is serialized, checks that `master` has not moved, and uses `--skip-duplicate` plus release-state checks so a failed run can be retried safely.
 
@@ -152,7 +152,7 @@ Go to Actions → "Publish NuGet (ytx)" → "Run workflow" and choose your versi
 3. Watch the "Publish NuGet (ytx)" workflow. A successful run publishes NuGet first, then pushes the version commit and tag.
 4. Confirm the new version on NuGet or with `dotnet tool update -g solrevdev.ytx`, then run `ytx --version`.
 
-The GitHub repository must have a valid `NUGET_API_KEY` Actions secret. If publication fails, fix the cause and rerun the same workflow; do not manually bump the project version before retrying.
+The GitHub Actions workflow uses NuGet Trusted Publishing and does not need a stored API key. If publication fails, fix the cause and rerun the same workflow; do not manually bump the project version before retrying.
 
 ## Exit Codes
 
