@@ -45,7 +45,7 @@ This repo is a small .NET global tool (PackageId: `solrevdev.ytx`) that extracts
   - `src/Ytx/Program.cs` — main logic
   - `src/Ytx/Ytx.csproj` — packaging/versioning
   - `README.md` — usage, build, and release steps
-  - `CLAUDE.md` — additional guidance and implementation notes
+  - `AGENTS.md` — additional guidance and implementation notes
 
 If any instruction here is unclear or you'd like more examples (tests, CI snippets, or typical PR diffs), ask and I'll expand this file with concrete snippets.
 ````
