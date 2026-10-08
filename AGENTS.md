@@ -61,7 +61,7 @@ dotnet tool install -g solrevdev.ytx --add-source ./nupkg
 
 ## Key Dependencies
 
-- `YoutubeExplode` 6.5.6 - Core YouTube data extraction
+- `YoutubeExplode` 6.6.2 - Core YouTube data extraction
 - .NET 8.0/9.0/10.0 target frameworks with nullable reference types enabled
 - System.Text.Json for serialization
 - System.Text.RegularExpressions for caption text normalization
