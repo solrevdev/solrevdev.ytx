@@ -50,7 +50,8 @@ static partial class Program
         Options:
           -u, --url <value>         Specify the YouTube URL or video ID explicitly.
           -l, --language <value>    Prefer captions matching a language name or code
-                                    (default: English).
+                                    (default: English). Falls back to English, then
+                                    any track, with a warning on stderr.
               --metadata-only       Skip caption retrieval and return metadata only.
           -c, --compact             Write compact JSON instead of indented JSON.
           -h, -?, --help            Show help and exit.
@@ -140,6 +141,12 @@ static partial class Program
 
                     if (track != null)
                     {
+                        if (!LanguageMatches(track.Language.Code, track.Language.Name, options.Language))
+                        {
+                            Console.Error.WriteLine(
+                                $"Warning: No captions match '{options.Language}'; using {track.Language.Name} ({track.Language.Code}).");
+                        }
+
                         var captions = await client.Videos.ClosedCaptions.GetAsync(track);
                         (transcriptRaw, transcriptMd) = BuildTranscript(video.Id.Value, captions.Captions);
                     }
