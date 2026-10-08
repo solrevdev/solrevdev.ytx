@@ -1,5 +1,9 @@
+using System.Net;
 using System.Text.RegularExpressions;
 using Xunit;
+using YoutubeExplode.Common;
+using YoutubeExplode.Exceptions;
+using YoutubeExplode.Videos;
 using YoutubeExplode.Videos.ClosedCaptions;
 
 public class ProgramTests
@@ -225,5 +229,56 @@ public class ProgramTests
     public void GetVersion_ReturnsAThreePartPackageVersion()
     {
         Assert.Matches(new Regex(@"^\d+\.\d+\.\d+$"), Program.GetVersion());
+    }
+
+    [Fact]
+    public void CreateOutput_MapsMetadataAndCanonicalUrl()
+    {
+        var video = new Video(
+            VideoId.Parse("dQw4w9WgXcQ"), "Title",
+            new Author("UCuAXFkgsw1L7xaCfnd5JJOw", "Channel"),
+            new DateTimeOffset(2009, 10, 25, 6, 57, 33, TimeSpan.Zero), "Description",
+            TimeSpan.FromSeconds(212.9), [], ["k1", "k2"], new Engagement(42, 1, 0));
+
+        var output = Program.CreateOutput(video);
+
+        Assert.Equal("https://www.youtube.com/watch?v=dQw4w9WgXcQ", output.url);
+        Assert.Equal("dQw4w9WgXcQ", output.videoId);
+        Assert.Equal("Channel", output.channel);
+        Assert.Equal("UCuAXFkgsw1L7xaCfnd5JJOw", output.channelId);
+        Assert.Equal("2009-10-25", output.uploadDate);
+        Assert.Equal(212, output.durationSeconds);
+        Assert.Equal(42, output.viewCount);
+        Assert.Equal(["k1", "k2"], output.keywords);
+        Assert.Equal(CaptionStatus.Skipped, output.captionStatus);
+        Assert.Equal("", output.transcript);
+    }
+
+    [Fact]
+    public void CreateOutput_LeavesLiveStreamDurationNull()
+    {
+        var video = new Video(
+            VideoId.Parse("dQw4w9WgXcQ"), "Live", new Author("UCuAXFkgsw1L7xaCfnd5JJOw", "Channel"),
+            DateTimeOffset.UnixEpoch, "", null, [], [], new Engagement(0, 0, 0));
+
+        Assert.Null(Program.CreateOutput(video).durationSeconds);
+    }
+
+    public static TheoryData<Exception, string> CaptionErrors() => new()
+    {
+        { new RequestLimitExceededException("Too many requests"), CaptionStatus.Blocked },
+        { new HttpRequestException("Forbidden", null, HttpStatusCode.Forbidden), CaptionStatus.Blocked },
+        { new HttpRequestException("Too many", null, HttpStatusCode.TooManyRequests), CaptionStatus.Blocked },
+        { new VideoUnplayableException("Sign in to confirm you're not a bot"), CaptionStatus.Blocked },
+        { new HttpRequestException("Server error", null, HttpStatusCode.InternalServerError), CaptionStatus.Error },
+        { new HttpRequestException("No route to host"), CaptionStatus.Error },
+        { new TaskCanceledException("Timed out"), CaptionStatus.Error },
+    };
+
+    [Theory]
+    [MemberData(nameof(CaptionErrors))]
+    public void ClassifyCaptionError_SeparatesBlockingFromOtherFailures(Exception ex, string expected)
+    {
+        Assert.Equal(expected, Program.ClassifyCaptionError(ex));
     }
 }
