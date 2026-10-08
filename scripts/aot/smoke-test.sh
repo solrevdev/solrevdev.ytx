@@ -3,7 +3,8 @@
 #
 # Usage: scripts/aot/smoke-test.sh /path/to/ytx [expected-version]
 #
-# Checks --version, --help and the usage-error exit codes, including the stdin JSON path.
+# Checks --version, --help, the usage-error exit codes (including the stdin JSON path) and a
+# refused proxy connection.
 # That path deserialises JSON, so it fails if a NativeAOT build still uses reflection-based
 # System.Text.Json (the binary aborts instead of exiting 2).
 set -uo pipefail
@@ -58,6 +59,13 @@ expect_exit 2 "--help with --version" "$bin" --help --version
 expect_exit 2 "no URL and empty stdin" "$bin"
 expect_stdin_exit 2 "stdin JSON with invalid URL" '{"url":"not a video!!"}'
 expect_stdin_exit 2 "stdin malformed JSON" '{"url":'
+expect_exit 2 "unknown --format" "$bin" --format xml dQw4w9WgXcQ
+expect_exit 2 "--format with --metadata-only" "$bin" --format srt --metadata-only dQw4w9WgXcQ
+expect_exit 2 "--list-languages with --segments" "$bin" --list-languages --segments dQw4w9WgXcQ
+expect_exit 2 "--timeout 0" "$bin" --timeout 0 dQw4w9WgXcQ
+expect_exit 2 "--proxy without a scheme" "$bin" --proxy host:8080 dQw4w9WgXcQ
+# Port 9 (discard) refuses connections, so this runs the HttpClient, proxy and error paths offline.
+expect_exit 1 "unreachable --proxy" "$bin" --timeout 20 --proxy http://127.0.0.1:9 dQw4w9WgXcQ
 
 if [[ $failures -gt 0 ]]; then
   echo "$failures smoke test(s) failed." >&2
