@@ -71,6 +71,8 @@ jobs:
   publish:
     if: github.event_name != 'pull_request'
     permissions:
+      # actions: write lets this job start native.yml; see the last step.
+      actions: write
       contents: write
       id-token: write
     runs-on: ubuntu-latest
@@ -224,3 +226,11 @@ jobs:
               --title "ytx v$VERSION" \
               --generate-notes
           fi
+
+      # Releases made with GITHUB_TOKEN do not fire `release: published` in other workflows,
+      # so start the native build explicitly. It attaches the binaries to this release.
+      - name: Build native binaries
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.bump.outputs.tag }}
+        run: gh workflow run native.yml --ref master -f tag="$TAG"
