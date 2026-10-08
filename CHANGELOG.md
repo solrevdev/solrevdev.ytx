@@ -6,6 +6,13 @@ All notable changes to ytx are listed here. The format follows
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-08
+
+### Added
+
+- `chapters`: chapters read from the video description as `{start, end, title}`, using YouTube's rules (starts at `0:00`, at least three, increasing, each at least 10 seconds, one block). Filled with `--metadata-only` too ([#16](https://github.com/solrevdev/solrevdev.ytx/issues/16)).
+- The Markdown `transcript` and `--format md` have a `## Title` heading at each chapter.
+
 ## [1.1.0] - 2026-10-08
 
 This release fixes the caption bugs from the v1.0.7 review ([#3](https://github.com/solrevdev/solrevdev.ytx/issues/3)) and settles the JSON contract.
@@ -92,7 +99,8 @@ This release fixes the caption bugs from the v1.0.7 review ([#3](https://github.
 
 - First release: title, description, raw transcript and Markdown transcript as JSON.
 
-[Unreleased]: https://github.com/solrevdev/solrevdev.ytx/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/solrevdev/solrevdev.ytx/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/solrevdev/solrevdev.ytx/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/solrevdev/solrevdev.ytx/compare/v1.0.8...v1.1.0
 [1.0.8]: https://github.com/solrevdev/solrevdev.ytx/compare/v1.0.7...v1.0.8
 [1.0.7]: https://github.com/solrevdev/solrevdev.ytx/compare/v1.0.6...v1.0.7
