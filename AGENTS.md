@@ -11,14 +11,14 @@ This is `ytx`, a .NET Global Tool that extracts YouTube video metadata and trans
 **Main Components:**
 - `src/Ytx/Program.cs` - Single-file console application with async main method
 - `Input` record - Simple DTO for JSON input parsing
-- `Output` class - JSON output structure with 5 fields: url, title, description, transcriptRaw, transcript
+- `Output` class - JSON output contract (1.1.0): canonical url, videoId, metadata, caption status and track, transcriptRaw, transcript. Property order is the field order; README documents each field
 - Uses YoutubeExplode library for YouTube API interactions and caption extraction
 
 **Data Flow:**
 1. Input validation (command-line args or JSON via stdin)
 2. YouTube video data extraction via YoutubeExplode
 3. Caption track discovery and selection (prefers English, falls back to any available)
-4. Transcript formatting (raw text + markdown with timestamped links)
+4. Transcript formatting (raw text + markdown with timestamped links) and caption status
 5. JSON serialization to stdout
 
 ## Development Commands
@@ -53,7 +53,7 @@ dotnet tool install -g solrevdev.ytx --add-source ./nupkg
 
 **Caption Detection Logic:** `SelectTrack` ranks tracks by exact language code, then exact name, then code prefix (`en` matches `en-GB`), then name substring (only for preferences longer than 3 characters, because "fr" is inside "Afrikaans"). Ties prefer a manual track over an auto-generated one. Unknown languages fall back to English, then any track.
 
-**Error Handling:** Returns specific exit codes (0=success, 1=unexpected error, 2=usage error) for scriptable integration.
+**Error Handling:** Returns specific exit codes (0=success, 1=unexpected error, 2=usage error, 3=metadata written but captions blocked or failed) for scriptable integration. Caption failures set `captionStatus` and `captionError`; only YouTube and HTTP exceptions are caught there, so bugs still fail with exit 1.
 
 **JSON Input/Output:** Supports both command-line arguments and JSON via stdin. Output uses `UnsafeRelaxedJsonEscaping` for proper Unicode handling in video descriptions.
 
