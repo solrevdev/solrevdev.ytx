@@ -19,7 +19,7 @@ This is `ytx`, a .NET Global Tool that extracts YouTube video metadata and trans
 2. YouTube video data extraction via YoutubeExplode
 3. Caption track discovery and selection (prefers English, falls back to any available)
 4. Transcript formatting (raw text + markdown with timestamped links) and caption status
-5. JSON serialization to stdout
+5. JSON serialization to stdout, or a transcript-only format (`--format md|txt|srt|vtt`) built from the normalized segments
 
 ## Development Commands
 
