@@ -105,6 +105,37 @@ public class ProgramTests
         Assert.Equal(expectedError, error);
     }
 
+    [Theory]
+    [InlineData("--timeout", "Option '--timeout' requires a value.")]
+    [InlineData("--timeout 0", "Option '--timeout' requires a positive number of seconds.")]
+    [InlineData("--timeout -5", "Option '--timeout' requires a positive number of seconds.")]
+    [InlineData("--timeout abc", "Option '--timeout' requires a positive number of seconds.")]
+    [InlineData("--timeout NaN", "Option '--timeout' requires a positive number of seconds.")]
+    [InlineData("--timeout 1e300", "Option '--timeout' requires a positive number of seconds.")]
+    public void ParseOptions_RejectsInvalidTimeouts(string arguments, string expectedError)
+    {
+        var (options, error) = Program.ParseOptions(arguments.Split(' '));
+
+        Assert.Null(options);
+        Assert.Equal(expectedError, error);
+    }
+
+    [Fact]
+    public void ParseOptions_ParsesTimeoutInSeconds()
+    {
+        var (options, error) = Program.ParseOptions(["--timeout", "2.5", "id"]);
+
+        Assert.Null(error);
+        Assert.Equal(TimeSpan.FromSeconds(2.5), options?.Timeout);
+    }
+
+    [Fact]
+    public void ParseOptions_RecordsWhetherLanguageWasGiven()
+    {
+        Assert.False(Program.ParseOptions(["id"]).Options?.LanguageSpecified);
+        Assert.True(Program.ParseOptions(["-l", "English", "id"]).Options?.LanguageSpecified);
+    }
+
     [Fact]
     public void ParseOptions_RejectsDuplicateUrlSources()
     {
@@ -219,6 +250,9 @@ public class ProgramTests
     [Theory]
     [InlineData("  hello\n  world  ", "hello world")]
     [InlineData("hello&nbsp;world", "hello world")]
+    [InlineData("double&nbsp;&nbsp;entity", "double entity")]
+    [InlineData("space &nbsp; around", "space around")]
+    [InlineData("&nbsp;edges&nbsp;", "edges")]
     [InlineData("   ", "")]
     public void NormalizeCaption_NormalizesWhitespace(string input, string expected)
     {

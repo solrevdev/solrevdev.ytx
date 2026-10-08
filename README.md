@@ -59,6 +59,10 @@ ytx --version
 
 The positional URL and piped JSON forms are the original interfaces and remain supported. `--url` is available when an explicit option is more convenient.
 
+- Piped JSON uses only its `url` key; other keys are ignored. Pass options such as `--language` as arguments.
+- A URL given as an argument wins, and piped input is then not read.
+- Put `--` before a video ID that starts with `-`, for example `ytx -- -AbCdEfGhIj`.
+
 ### Options
 
 ```text
@@ -67,9 +71,10 @@ The positional URL and piped JSON forms are the original interfaces and remain s
                           (default: English). Falls back to English, then
                           any track, with a warning on stderr
     --metadata-only       Skip caption retrieval and return metadata only
+    --timeout <seconds>   Give up after this many seconds (default: none)
 -c, --compact             Write compact JSON instead of indented JSON
 -h, -?, --help            Show help and exit
--v, --version             Show version and exit
+-v, --version             Show the ytx version and exit
 ```
 
 Examples:
@@ -186,6 +191,7 @@ The GitHub Actions workflow uses NuGet Trusted Publishing and does not need a st
 - `1` — The video could not be retrieved, or another unexpected error
 - `2` — Usage error (missing or invalid URL)
 - `3` — Metadata was written to stdout, but captions were blocked or failed (`captionStatus` is `blocked` or `error`)
+- `130` — Cancelled with Ctrl+C
 
 ## Known Limitations
 

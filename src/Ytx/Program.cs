@@ -17,7 +17,9 @@ record Options(
     bool MetadataOnly,
     bool Compact,
     bool ShowHelp,
-    bool ShowVersion);
+    bool ShowVersion,
+    bool LanguageSpecified = false,
+    TimeSpan? Timeout = null);
 
 // Property order is the JSON field order. Nullable fields are written as null, never
 // omitted, so every document has the same keys.
@@ -69,7 +71,9 @@ static partial class Program
           echo '{"url":"URL_OR_VIDEO_ID"}' | ytx [options]
 
         Arguments:
-          URL_OR_VIDEO_ID           A YouTube URL or video ID.
+          URL_OR_VIDEO_ID           A YouTube URL or video ID. Put '--' before an ID
+                                    that starts with '-'. When given, piped input is
+                                    not read. Piped JSON uses only its "url" key.
 
         Options:
           -u, --url <value>         Specify the YouTube URL or video ID explicitly.
@@ -77,9 +81,10 @@ static partial class Program
                                     (default: English). Falls back to English, then
                                     any track, with a warning on stderr.
               --metadata-only       Skip caption retrieval and return metadata only.
+              --timeout <seconds>   Give up after this many seconds (default: none).
           -c, --compact             Write compact JSON instead of indented JSON.
           -h, -?, --help            Show help and exit.
-          -v, --version             Show version and exit.
+          -v, --version             Show the ytx version and exit.
 
         Output:
           JSON is written to stdout. Diagnostics are written to stderr.
@@ -89,6 +94,7 @@ static partial class Program
           1  Video retrieval or another runtime error
           2  Invalid command-line usage or input
           3  Metadata written, but captions were blocked or failed
+          130  Cancelled with Ctrl+C
         """;
 
     static async Task<int> Main(string[] args)
@@ -147,15 +153,31 @@ static partial class Program
             return 2;
         }
 
+        if (options.MetadataOnly && options.LanguageSpecified)
+        {
+            Console.Error.WriteLine("Warning: --language is ignored with --metadata-only.");
+        }
+
+        using var cts = new CancellationTokenSource();
+        var interrupted = false;
+        Console.CancelKeyPress += (_, e) =>
+        {
+            // Let the in-flight request unwind so the exit code is ours, not the runtime's.
+            e.Cancel = true;
+            interrupted = true;
+            cts.Cancel();
+        };
+        if (options.Timeout is { } timeout) cts.CancelAfter(timeout);
+
         try
         {
             var client = new YoutubeClient();
-            var video = await client.Videos.GetAsync(videoId.Value);
+            var video = await client.Videos.GetAsync(videoId.Value, cts.Token);
             var output = CreateOutput(video);
 
             if (!options.MetadataOnly)
             {
-                await AddCaptionsAsync(client, video.Id, options.Language, output);
+                await AddCaptionsAsync(client, video.Id, options.Language, output, cts.Token);
             }
 
             Console.OutputEncoding = Encoding.UTF8;
@@ -170,6 +192,12 @@ static partial class Program
                 return 3;
             }
             return 0;
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            if (interrupted) return 130;
+            Console.Error.WriteLine($"Error: Timed out after {options.Timeout!.Value.TotalSeconds:0.###} seconds.");
+            return 1;
         }
         catch (Exception ex)
         {
@@ -192,11 +220,12 @@ static partial class Program
         description = video.Description ?? "",
     };
 
-    private static async Task AddCaptionsAsync(YoutubeClient client, VideoId videoId, string language, Output output)
+    private static async Task AddCaptionsAsync(
+        YoutubeClient client, VideoId videoId, string language, Output output, CancellationToken cancellationToken)
     {
         try
         {
-            var manifest = await client.Videos.ClosedCaptions.GetManifestAsync(videoId);
+            var manifest = await client.Videos.ClosedCaptions.GetManifestAsync(videoId, cancellationToken);
             var track = SelectTrack(manifest.Tracks, language);
             if (track == null)
             {
@@ -210,7 +239,7 @@ static partial class Program
                     $"Warning: No captions match '{language}'; using {track.Language.Name} ({track.Language.Code}).");
             }
 
-            var captions = await client.Videos.ClosedCaptions.GetAsync(track);
+            var captions = await client.Videos.ClosedCaptions.GetAsync(track, cancellationToken);
             (output.transcriptRaw, output.transcript) = BuildTranscript(videoId.Value, captions.Captions);
             output.captionStatus = CaptionStatus.Ok;
             output.captionLanguage = track.Language.Code;
@@ -219,7 +248,9 @@ static partial class Program
         }
         // Only failures of the caption fetch itself are reported in the output. Anything
         // else is a bug and should fail loudly instead of looking like a video without captions.
-        catch (Exception ex) when (ex is YoutubeExplodeException or HttpRequestException or TaskCanceledException)
+        // HttpClient's own timeout is a TaskCanceledException too, so tell it apart from ours.
+        catch (Exception ex) when (ex is YoutubeExplodeException or HttpRequestException or TaskCanceledException
+            && !cancellationToken.IsCancellationRequested)
         {
             output.captionStatus = ClassifyCaptionError(ex);
             output.captionError = ex.Message;
@@ -284,6 +315,8 @@ static partial class Program
     {
         string? url = null;
         var language = "English";
+        var languageSpecified = false;
+        TimeSpan? timeout = null;
         var metadataOnly = false;
         var compact = false;
         var showHelp = false;
@@ -324,6 +357,16 @@ static partial class Program
                 if (++i >= args.Length || string.IsNullOrWhiteSpace(args[i]))
                     return (null, $"Option '{arg}' requires a value.");
                 language = args[i];
+                languageSpecified = true;
+            }
+            else if (!positionalOnly && arg == "--timeout")
+            {
+                if (++i >= args.Length) return (null, $"Option '{arg}' requires a value.");
+                if (!double.TryParse(args[i], System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture, out var seconds)
+                    || !double.IsFinite(seconds) || seconds <= 0 || seconds > int.MaxValue / 1000)
+                    return (null, $"Option '{arg}' requires a positive number of seconds.");
+                timeout = TimeSpan.FromSeconds(seconds);
             }
             else if (!positionalOnly && arg.StartsWith('-'))
             {
@@ -342,7 +385,7 @@ static partial class Program
         if (showHelp && showVersion)
             return (null, "Options '--help' and '--version' cannot be used together.");
 
-        return (new Options(url, language, metadataOnly, compact, showHelp, showVersion), null);
+        return (new Options(url, language, metadataOnly, compact, showHelp, showVersion, languageSpecified, timeout), null);
     }
 
     internal static string GetVersion()
@@ -394,10 +437,11 @@ static partial class Program
     internal static string NormalizeCaption(string text)
     {
         if (string.IsNullOrWhiteSpace(text)) return "";
+        // Replace entities first so "a&nbsp;&nbsp;b" collapses to one space like any other run.
+        if (text.Contains("&nbsp;")) text = text.Replace("&nbsp;", " ");
         // \s+ also matches every single space, so the regex would allocate a new string
         // for nearly every caption. Only run it when the text is not already normalized.
-        if (NeedsWhitespaceNormalizing(text)) text = WhitespaceRun().Replace(text, " ").Trim();
-        return text.Contains("&nbsp;") ? text.Replace("&nbsp;", " ") : text;
+        return NeedsWhitespaceNormalizing(text) ? WhitespaceRun().Replace(text, " ").Trim() : text;
     }
 
     // True when the text has leading or trailing whitespace, a run of spaces, or any
