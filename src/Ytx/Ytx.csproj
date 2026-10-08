@@ -28,6 +28,17 @@
     <PackageOutputPath>../../nupkg</PackageOutputPath>
   </PropertyGroup>
 
+  <!--
+    Native distribution only: dotnet publish src/Ytx -c Release -f net10.0 -r <rid> -p:PublishAot=true
+    The NuGet tool package never sets PublishAot, so these settings do not change it.
+  -->
+  <PropertyGroup Condition="'$(PublishAot)' == 'true'">
+    <!-- No ICU dependency, so the Linux binary runs without libicu. ytx only compares and formats ordinally. -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- Keep the .dSYM, .dbg or .pdb (up to 30 MB) out of the shipped archive. -->
+    <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="YoutubeExplode" Version="6.5.6" />
   </ItemGroup>
