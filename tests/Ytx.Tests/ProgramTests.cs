@@ -313,6 +313,7 @@ public class ProgramTests
         Assert.Equal(212, output.durationSeconds);
         Assert.Equal(42, output.viewCount);
         Assert.Equal(["k1", "k2"], output.keywords);
+        Assert.Empty(output.chapters);
         Assert.Equal(CaptionStatus.Skipped, output.captionStatus);
         Assert.Equal("", output.transcript);
     }
@@ -343,6 +344,106 @@ public class ProgramTests
     public void ClassifyCaptionError_SeparatesBlockingFromOtherFailures(Exception ex, string expected)
     {
         Assert.Equal(expected, Program.ClassifyCaptionError(ex));
+    }
+
+    [Theory]
+    [InlineData("0:00 Intro", 0, "Intro")]
+    [InlineData("0:00 - Episode highlight", 0, "Episode highlight")]
+    [InlineData("(00:00) - Introduction", 0, "Introduction")]
+    [InlineData("[1:02:03] Deep dive", 3723, "Deep dive")]
+    [InlineData("• 3:12 | Setup", 192, "Setup")]
+    [InlineData("03:12: Setup", 192, "Setup")]
+    [InlineData("75:00 Long minutes", 4500, "Long minutes")]
+    [InlineData("Wrap-up - 12:34", 754, "Wrap-up")]
+    [InlineData("Questions (1:00:00)", 3600, "Questions")]
+    [InlineData("  4:05   Spaces\r", 245, "Spaces")]
+    public void TryParseChapterLine_ReadsCommonLayouts(string line, int start, string title)
+    {
+        Assert.True(Program.TryParseChapterLine(line, out var actualStart, out var actualTitle));
+        Assert.Equal((start, title), (actualStart, actualTitle));
+    }
+
+    [Theory]
+    [InlineData("No timestamp here")]
+    [InlineData("0:00")]
+    [InlineData("0:00 ---")]
+    [InlineData("1:60 Bad seconds")]
+    [InlineData("1:60:00 Bad minutes")]
+    [InlineData("")]
+    public void TryParseChapterLine_RejectsNonChapters(string line)
+    {
+        Assert.False(Program.TryParseChapterLine(line, out _, out _));
+    }
+
+    [Fact]
+    public void ParseChapters_ReturnsChaptersWithEnds()
+    {
+        var description = "Great talk.\n\nChapters:\n0:00 Intro\n1:30 Middle\n\n10:00 End\n\nFollow me at 99:00 on stream.";
+
+        var chapters = Program.ParseChapters(description, TimeSpan.FromSeconds(700));
+
+        Assert.Collection(chapters,
+            c => Assert.Equal((0d, (double?)90, "Intro"), (c.start, c.end, c.title)),
+            c => Assert.Equal((90d, (double?)600, "Middle"), (c.start, c.end, c.title)),
+            c => Assert.Equal((600d, (double?)700, "End"), (c.start, c.end, c.title)));
+    }
+
+    [Fact]
+    public void ParseChapters_LeavesLastEndNullWithoutDuration()
+    {
+        var chapters = Program.ParseChapters("0:00 A\n0:30 B\n1:00 C", null);
+
+        Assert.Equal(3, chapters.Count);
+        Assert.Null(chapters[^1].end);
+    }
+
+    [Fact]
+    public void ParseChapters_SkipsTimestampsBeforeTheListStartsAtZero()
+    {
+        var chapters = Program.ParseChapters("Live at 12:00 today\n0:00 A\n0:30 B\n1:00 C", TimeSpan.FromMinutes(5));
+
+        Assert.Equal(["A", "B", "C"], chapters.Select(c => c.title));
+    }
+
+    [Theory]
+    [InlineData("0:10 A\n0:30 B\n1:00 C")]                 // does not start at 0:00
+    [InlineData("0:00 A\n0:30 B")]                         // fewer than three
+    [InlineData("0:00 A\n0:05 B\n1:00 C")]                 // a chapter shorter than 10 s
+    [InlineData("0:00 A\n0:30 B\n4:55 C")]                 // last chapter shorter than 10 s
+    [InlineData("0:00 A\n0:30 B\n9:00 C")]                 // starts after the video ends
+    [InlineData("0:00 A\nSome prose\n0:30 B\n1:00 C")]    // the block is broken by prose
+    [InlineData("0:00 A\n0:30 B\n0:20 C\n1:00 D")]         // times stop increasing
+    public void ParseChapters_FollowsYouTubeRules(string description)
+    {
+        Assert.Empty(Program.ParseChapters(description, TimeSpan.FromMinutes(5)));
+    }
+
+    [Fact]
+    public void BuildTranscript_AddsAHeadingAtEachChapter()
+    {
+        var captions = new[]
+        {
+            new ClosedCaption("hello", TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), []),
+            new ClosedCaption("still intro", TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(1), []),
+            new ClosedCaption("after the gap", TimeSpan.FromSeconds(70), TimeSpan.FromSeconds(1), []),
+        };
+        Chapter[] chapters =
+        [
+            new() { start = 0, end = 30, title = "Intro" },
+            new() { start = 30, end = 60, title = "Silent" },
+            new() { start = 60, end = null, title = "Main" },
+        ];
+
+        var (raw, markdown) = Program.BuildTranscript("AbCdEfGhIjK", captions, chapters);
+
+        var nl = Environment.NewLine;
+        Assert.Equal("hello still intro after the gap", raw);
+        Assert.Equal(
+            $"## Intro{nl}{nl}- [00:01](https://www.youtube.com/watch?v=AbCdEfGhIjK&t=1s) hello{nl}"
+            + $"- [00:05](https://www.youtube.com/watch?v=AbCdEfGhIjK&t=5s) still intro{nl}{nl}"
+            + $"## Silent{nl}{nl}## Main{nl}{nl}"
+            + "- [01:10](https://www.youtube.com/watch?v=AbCdEfGhIjK&t=70s) after the gap",
+            markdown);
     }
 
     private static Output TranscriptOutput() => new()

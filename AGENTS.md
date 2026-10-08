@@ -11,14 +11,14 @@ This is `ytx`, a .NET Global Tool that extracts YouTube video metadata and trans
 **Main Components:**
 - `src/Ytx/Program.cs` - Single-file console application with async main method
 - `Input` record - Simple DTO for JSON input parsing
-- `Output` class - JSON output contract (1.1.0): canonical url, videoId, metadata, caption status and track, transcriptRaw, transcript, segments. Property order is the field order; README documents each field. Changing a field name or order is a breaking change
+- `Output` class - JSON output contract (1.1.0): canonical url, videoId, metadata, caption status and track, transcriptRaw, transcript, segments, chapters. Property order is the field order; new fields go at the end; README documents each field. Changing a field name or order is a breaking change
 - Uses YoutubeExplode library for YouTube API interactions and caption extraction
 
 **Data Flow:**
 1. Input validation (command-line args or JSON via stdin)
 2. YouTube video data extraction via YoutubeExplode
 3. Caption track discovery and selection (`SelectTrack`: best `--language` match, then English, then manual over auto-generated)
-4. Transcript formatting (raw text + markdown with timestamped links) and caption status
+4. Chapter parsing from the description (`ParseChapters`, YouTube's rules) and transcript formatting (raw text + markdown with timestamped links and a `##` heading per chapter) with caption status
 5. JSON serialization to stdout, or a transcript-only format (`--format md|txt|srt|vtt`) built from the normalized segments
 
 ## Development Commands

@@ -305,6 +305,24 @@ Each of these is worth a paragraph in the post.
 
 For startup, CPU and memory comparisons between build types, see #4 and the AOT write-up.
 
+## 6a. Follow-up: chapters in 1.2.0
+
+After 1.1.0, the user asked why chapters were left out. That had been the session's own call, because YoutubeExplode has no chapters API, and it should have been raised as a question. The design was agreed in [#16](https://github.com/solrevdev/solrevdev.ytx/issues/16) and shipped the same evening as **1.2.0**.
+
+- **Source.** Creator chapters are the timestamped lines in the description, which ytx already fetches. No extra request is needed, and the code stays AOT-safe because both regexes are source-generated.
+- **YouTube's rules, applied as written:**
+  - the list starts at `0:00`
+  - it has at least three entries
+  - times strictly increase
+  - every chapter lasts at least 10 seconds, including the last one up to the video's duration
+
+  A list that breaks any rule gives `[]`.
+- **Trap: prose after the list.** A line such as "Follow me at 99:00 on stream" after the list has an increasing time, so the first version would have added it as a chapter. The list is now one block: blank lines are allowed, but any other line ends it.
+- **Trap: empty chapters.** A chapter with no captions of its own still gets its heading, so the Markdown outline always matches `chapters`. An extra blank line between two headings was caught in a unit test and removed.
+- **Output.** `chapters` is appended as the last field, so existing field order is unchanged. Live on `NYFGCESmikA`, it returns 23 chapters, matching the description, and the Markdown starts each one with `## Title`. The TED talk returns `[]`. AOT and JIT output were byte-identical on all three checks.
+- **Tests:** 145. They cover 10 line layouts, 6 rejections, 7 rule violations, a null end for live streams, and heading placement.
+- **Left out:** auto-generated "key moments" (needs page scraping), a chapter index on each segment, and WebVTT chapter tracks.
+
 ## 7. Decisions not taken
 
 - **No `ytx mcp` server mode.** It was prototyped as far as checking the API of `ModelContextProtocol.Core` 2.2.0, then dropped at the user's suggestion. Reasons:
@@ -313,7 +331,7 @@ For startup, CPU and memory comparisons between build types, see #4 and the AOT 
   - Agents can already run `ytx` and parse its JSON, which now has `captionStatus`, segments and clear exit codes.
 - **No deduplication of caption cues.** See section 5.
 - **No branch protection.** The publish job pushes the version bump straight to `master`, and a protection rule would break that. The user chose to leave protection off.
-- **No chapters, thumbnails or other rich metadata.** YoutubeExplode doesn't expose chapters. The 1.1.0 schema adds channel, date, duration, views and keywords, which covers most uses.
+- **No chapters in 1.1.0, thumbnails or other rich metadata.** YoutubeExplode doesn't expose chapters, so they were deferred, then added in 1.2.0 by parsing the description (section 6a). Thumbnails are still left out.
 - **No translation, cookies or batch input.** #3 lists these in "What users expect". They weren't in the decided order (#7), so they stay as possible future work.
 - **Action majors not bumped.** The pins stay on v5 and v1. Dependabot will propose v6 and v7 as separate PRs.
 - **No CHANGELOG entries until release.** Adding them in each stacked PR would have caused conflicts, so they were written at release time.
