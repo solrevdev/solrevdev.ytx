@@ -52,7 +52,8 @@ The positional URL and piped JSON forms are the original interfaces and remain s
 ```text
 -u, --url <value>         Specify the YouTube URL or video ID explicitly
 -l, --language <value>    Prefer captions matching a language name or code
-                          (default: English)
+                          (default: English). Falls back to English, then
+                          any track, with a warning on stderr
     --metadata-only       Skip caption retrieval and return metadata only
 -c, --compact             Write compact JSON instead of indented JSON
 -h, -?, --help            Show help and exit
@@ -65,7 +66,7 @@ Examples:
 # A bare 11-character YouTube video ID is also accepted
 ytx dQw4w9WgXcQ
 
-# Prefer French captions, falling back to another available caption track
+# Prefer French captions; falls back to English with a warning on stderr
 ytx --language fr "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 
 # Retrieve only the title and description and emit one-line JSON
