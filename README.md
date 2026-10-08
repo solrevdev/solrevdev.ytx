@@ -163,7 +163,7 @@ dotnet restore src/Ytx
 # Build
 dotnet build src/Ytx -c Release
 
-# Run the unit tests
+# Run the unit tests (on .NET 8, 9 and 10; add -f net8.0 to use one runtime)
 dotnet test tests/Ytx.Tests -c Release
 
 # Test locally (choose an installed target framework)
@@ -182,6 +182,10 @@ dotnet tool install -g solrevdev.ytx --add-source ./nupkg
 ├── src/Ytx/Ytx.csproj              # Package and target-framework metadata
 ├── tests/Ytx.Tests/                 # CLI parsing and formatting unit tests
 ├── .github/workflows/publish.yml   # Validation and release automation
+├── .github/workflows/codeql.yml    # CodeQL analysis
+├── assets/icon.svg                  # Package icon source (icon.png is rendered from it)
+├── CHANGELOG.md                     # Release history
+├── docs/investigations/             # Write-ups of reviews and investigations
 └── README.md                        # User and maintainer documentation
 ```
 
@@ -226,6 +230,11 @@ The GitHub Actions workflow uses NuGet Trusted Publishing and does not need a st
 - YouTube blocks many cloud and datacenter IP addresses, which shows up as `captionStatus: "blocked"` or exit code `1`. Use `--proxy` or `HTTPS_PROXY` with a residential proxy
 - Markdown timestamps are rounded down to whole seconds; `segments`, SRT and WebVTT keep milliseconds
 - Large transcripts are not truncated (full output provided)
+
+## Background
+
+- [CHANGELOG.md](CHANGELOG.md) lists the changes in each release.
+- [docs/investigations/2026-10-ytx-review-to-1.1.0.md](docs/investigations/2026-10-ytx-review-to-1.1.0.md) tells the story of the v1.0.7 review and the 1.1.0 release: the bugs, evidence, decisions and traps.
 
 ## Dependencies
 

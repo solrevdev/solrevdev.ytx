@@ -13,16 +13,23 @@
     <PackageId>solrevdev.ytx</PackageId>
 
     <!-- CI auto-bumps this -->
-    <Version>1.0.8</Version>
+    <Version>1.1.0</Version>
 
     <!-- NuGet metadata -->
     <Authors>solrevdev</Authors>
-    <PackageDescription>Extract YouTube title, description, and transcript (raw + Markdown) as JSON.</PackageDescription>
-    <PackageTags>YouTube;transcript;captions;cli;dotnet-tool;json</PackageTags>
+    <PackageDescription>Extract YouTube metadata and transcripts as JSON, Markdown, plain text, SRT or WebVTT, with a stable output contract for scripts and agents.</PackageDescription>
+    <PackageTags>YouTube;transcript;captions;subtitles;srt;vtt;cli;dotnet-tool;json</PackageTags>
     <RepositoryUrl>https://github.com/solrevdev/solrevdev.ytx</RepositoryUrl>
     <PackageProjectUrl>https://github.com/solrevdev/solrevdev.ytx</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
+
+    <!-- The SDK adds SourceLink for GitHub; these publish the matching symbols to NuGet. -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
 
     <!-- where pack puts .nupkg -->
     <PackageOutputPath>../../nupkg</PackageOutputPath>
@@ -40,11 +47,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="YoutubeExplode" Version="6.5.6" />
+    <PackageReference Include="YoutubeExplode" Version="6.6.2" />
   </ItemGroup>
 
   <ItemGroup>
     <None Include="../../README.md" Pack="true" PackagePath="\" />
+    <None Include="../../assets/icon.png" Pack="true" PackagePath="\" />
   </ItemGroup>
 
   <ItemGroup>
