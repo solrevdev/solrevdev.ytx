@@ -59,6 +59,15 @@ class Output
     public string transcriptRaw { get; set; } = "";
     public string transcript { get; set; } = "";
     public IReadOnlyList<Segment>? segments { get; set; }
+    public IReadOnlyList<Chapter> chapters { get; set; } = [];
+}
+
+// start and end are in seconds. end is null for the last chapter of a live stream.
+class Chapter
+{
+    public double start { get; set; }
+    public double? end { get; set; }
+    public string title { get; set; } = "";
 }
 
 // Times are in seconds, rounded to the millisecond.
@@ -292,7 +301,71 @@ static partial class Program
         viewCount = video.Engagement.ViewCount,
         keywords = video.Keywords,
         description = video.Description ?? "",
+        chapters = ParseChapters(video.Description ?? "", video.Duration),
     };
+
+    // YouTube only shows description timestamps as chapters when the list starts at 0:00, has
+    // at least three entries in increasing order, and every chapter lasts at least 10 seconds.
+    // Applying the same rules keeps tracklists and stray timestamps out.
+    internal static IReadOnlyList<Chapter> ParseChapters(string description, TimeSpan? duration)
+    {
+        const int minChapters = 3;
+        const int minSeconds = 10;
+
+        var run = new List<(int Start, string Title)>();
+        foreach (var line in description.Split('\n'))
+        {
+            var parsed = TryParseChapterLine(line, out var start, out var title);
+            if (run.Count == 0)
+            {
+                if (parsed && start == 0) run.Add((start, title));
+            }
+            // The list is one block: blank lines are allowed, but any other line or a time that
+            // does not increase ends it, so later timestamps in prose are not swallowed.
+            else if (parsed && start > run[^1].Start) run.Add((start, title));
+            else if (parsed || !string.IsNullOrWhiteSpace(line)) break;
+        }
+
+        var total = duration is { } d ? (int)d.TotalSeconds : (int?)null;
+        if (run.Count < minChapters) return [];
+        for (var i = 0; i < run.Count; i++)
+        {
+            var end = i + 1 < run.Count ? run[i + 1].Start : total;
+            if (end - run[i].Start < minSeconds) return [];
+        }
+
+        return run.Select((c, i) => new Chapter
+        {
+            start = c.Start,
+            end = i + 1 < run.Count ? run[i + 1].Start : total,
+            title = c.Title,
+        }).ToList();
+    }
+
+    // Accepts the common layouts: "0:00 Intro", "(00:00) - Intro", "[1:02:03] Intro", "• 3:12 | Intro"
+    // and "Intro - 3:12".
+    internal static bool TryParseChapterLine(string line, out int start, out string title)
+    {
+        start = 0;
+        title = "";
+        var match = ChapterAtStart().Match(line);
+        if (!match.Success) match = ChapterAtEnd().Match(line);
+        if (!match.Success) return false;
+
+        var parts = match.Groups["ts"].Value.Split(':').Select(int.Parse).ToArray();
+        var (h, m, sec) = parts.Length == 3 ? (parts[0], parts[1], parts[2]) : (0, parts[0], parts[1]);
+        if (sec > 59 || (parts.Length == 3 && m > 59)) return false;
+
+        start = h * 3600 + m * 60 + sec;
+        title = match.Groups["title"].Value.Trim();
+        return title.Length > 0;
+    }
+
+    [GeneratedRegex(@"^[^\p{L}\p{N}]*?[(\[]?(?<ts>(?:\d{1,2}:)?\d{1,3}:\d{2})[)\]]?(?:\s*[-–—:|•.]+)?\s+(?<title>.*[\p{L}\p{N}].*?)\s*$")]
+    private static partial Regex ChapterAtStart();
+
+    [GeneratedRegex(@"^\s*(?<title>.*?[\p{L}\p{N}].*?)\s*(?:[-–—:|•]+\s*)?[(\[]?(?<ts>(?:\d{1,2}:)?\d{1,3}:\d{2})[)\]]?\s*$")]
+    private static partial Regex ChapterAtEnd();
 
     // No handler is passed without a proxy, so HttpClient keeps its default proxy, which
     // reads HTTPS_PROXY, HTTP_PROXY and NO_PROXY and falls back to the system setting.
@@ -329,7 +402,7 @@ static partial class Program
             }
 
             var captions = await client.Videos.ClosedCaptions.GetAsync(track, cancellationToken);
-            (output.transcriptRaw, output.transcript) = BuildTranscript(videoId.Value, captions.Captions);
+            (output.transcriptRaw, output.transcript) = BuildTranscript(videoId.Value, captions.Captions, output.chapters);
             output.captionStatus = CaptionStatus.Ok;
             output.captionLanguage = track.Language.Code;
             output.captionLanguageName = track.Language.Name;
@@ -359,10 +432,13 @@ static partial class Program
         _ => CaptionStatus.Error,
     };
 
-    internal static (string Raw, string Markdown) BuildTranscript(string videoId, IEnumerable<ClosedCaption> captions)
+    internal static (string Raw, string Markdown) BuildTranscript(
+        string videoId, IEnumerable<ClosedCaption> captions, IReadOnlyList<Chapter>? chapters = null)
     {
         var rawSb = new StringBuilder();
         var mdSb = new StringBuilder();
+        chapters ??= [];
+        var nextChapter = 0;
 
         foreach (var caption in captions)
         {
@@ -375,6 +451,17 @@ static partial class Program
                 mdSb.Append(Environment.NewLine);
             }
             rawSb.Append(text);
+
+            // Every chapter that has started gets a heading, even one with no captions of its own,
+            // so the Markdown outline always matches the chapter list.
+            var headingAdded = false;
+            while (nextChapter < chapters.Count && chapters[nextChapter].start <= caption.Offset.TotalSeconds)
+            {
+                // A blank line separates the heading from the list item before it, but not from another heading.
+                if (mdSb.Length > 0 && !headingAdded) mdSb.Append(Environment.NewLine);
+                mdSb.Append("## ").Append(chapters[nextChapter++].title).Append(Environment.NewLine).Append(Environment.NewLine);
+                headingAdded = true;
+            }
 
             // Appending interpolated strings to a StringBuilder formats in place, with no temporary strings.
             mdSb.Append("- [");
