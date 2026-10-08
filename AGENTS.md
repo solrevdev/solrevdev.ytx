@@ -51,7 +51,7 @@ dotnet tool install -g solrevdev.ytx --add-source ./nupkg
 
 ## Important Implementation Details
 
-**Caption Detection Logic:** Orders available tracks by English language preference, then by auto-generated status. YoutubeExplode 6.5.6 provides the current video and caption extraction implementation.
+**Caption Detection Logic:** `SelectTrack` ranks tracks by exact language code, then exact name, then code prefix (`en` matches `en-GB`), then name substring (only for preferences longer than 3 characters, because "fr" is inside "Afrikaans"). Ties prefer a manual track over an auto-generated one. Unknown languages fall back to English, then any track. YoutubeExplode 6.5.6 provides the current video and caption extraction implementation.
 
 **Error Handling:** Returns specific exit codes (0=success, 1=unexpected error, 2=usage error) for scriptable integration.
 
