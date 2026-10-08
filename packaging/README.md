@@ -18,8 +18,9 @@ For release `vX.Y.Z`, `native.yml` uploads:
 | `SHA256SUMS` | `sha256sum` output for every archive |
 
 The workflow attaches assets when a release is published by a person, or when it is dispatched with
-`tag=vX.Y.Z`. A release that `publish.yml` creates with `GITHUB_TOKEN` does **not** trigger it on its
-own. See the comment at the top of `.github/workflows/native.yml`.
+`tag=vX.Y.Z`. A release that `publish.yml` creates with `GITHUB_TOKEN` does not trigger it on its own,
+so `publish.yml` dispatches it with the new tag as its last step. See the comment at the top of
+`.github/workflows/native.yml`.
 
 ## Name clash
 
