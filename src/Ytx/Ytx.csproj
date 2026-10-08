@@ -4,6 +4,8 @@
     <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <!-- Turns on the trim and AOT analyzers in every build so regressions show up early. -->
+    <IsAotCompatible>true</IsAotCompatible>
 
     <!-- dotnet tool packaging -->
     <PackAsTool>true</PackAsTool>

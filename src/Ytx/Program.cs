@@ -1,6 +1,8 @@
 using System.Reflection;
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using YoutubeExplode;
 using YoutubeExplode.Videos;
@@ -25,7 +27,15 @@ class Output
     public string transcript { get; set; } = "";
 }
 
-static class Program
+// Source-generated metadata skips reflection setup at startup and keeps JSON
+// working under trimming and NativeAOT, where reflection-based serialization is disabled.
+[JsonSerializable(typeof(Input))]
+[JsonSerializable(typeof(Output))]
+partial class YtxJsonContext : JsonSerializerContext
+{
+}
+
+static partial class Program
 {
     private const string Usage = """
         ytx extracts YouTube video metadata and captions as JSON.
@@ -85,8 +95,8 @@ static class Program
             {
                 try
                 {
-                    var input = JsonSerializer.Deserialize<Input>(stdin.Trim(),
-                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                    var input = JsonSerializer.Deserialize(stdin.Trim(),
+                        new YtxJsonContext(new JsonSerializerOptions { PropertyNameCaseInsensitive = true }).Input);
                     url = input?.url;
                 }
                 catch (JsonException ex)
@@ -134,24 +144,7 @@ static class Program
                     if (track != null)
                     {
                         var captions = await client.Videos.ClosedCaptions.GetAsync(track);
-                        var rawSb = new StringBuilder();
-                        var mdSb = new StringBuilder();
-
-                        foreach (var caption in captions.Captions)
-                        {
-                            var text = NormalizeCaption(caption.Text);
-                            if (string.IsNullOrWhiteSpace(text)) continue;
-
-                            if (rawSb.Length > 0) rawSb.Append(' ');
-                            rawSb.Append(text);
-
-                            var timestamp = ToHhMmSs(caption.Offset);
-                            var link = $"https://www.youtube.com/watch?v={video.Id}&t={(int)caption.Offset.TotalSeconds}s";
-                            mdSb.AppendLine($"- [{timestamp}]({link}) {text}");
-                        }
-
-                        transcriptRaw = rawSb.ToString().Trim();
-                        transcriptMd = mdSb.ToString().TrimEnd();
+                        (transcriptRaw, transcriptMd) = BuildTranscript(video.Id.Value, captions.Captions);
                     }
                     else
                     {
@@ -173,14 +166,11 @@ static class Program
                 transcript = transcriptMd
             };
 
-            var json = JsonSerializer.Serialize(output, new JsonSerializerOptions
-            {
-                WriteIndented = !options.Compact,
-                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-            });
-
             Console.OutputEncoding = Encoding.UTF8;
-            Console.WriteLine(json);
+            using (var stdout = Console.OpenStandardOutput())
+            {
+                WriteOutput(stdout, output, options.Compact);
+            }
             return 0;
         }
         catch (Exception ex)
@@ -188,6 +178,49 @@ static class Program
             Console.Error.WriteLine($"Error: {ex.Message}");
             return 1;
         }
+    }
+
+    internal static (string Raw, string Markdown) BuildTranscript(string videoId, IEnumerable<ClosedCaption> captions)
+    {
+        var rawSb = new StringBuilder();
+        var mdSb = new StringBuilder();
+
+        foreach (var caption in captions)
+        {
+            var text = NormalizeCaption(caption.Text);
+            if (string.IsNullOrWhiteSpace(text)) continue;
+
+            if (rawSb.Length > 0)
+            {
+                rawSb.Append(' ');
+                mdSb.Append(Environment.NewLine);
+            }
+            rawSb.Append(text);
+
+            // Appending interpolated strings to a StringBuilder formats in place, with no temporary strings.
+            mdSb.Append("- [");
+            AppendTimestamp(mdSb, caption.Offset);
+            mdSb.Append($"](https://www.youtube.com/watch?v={videoId}&t={(int)caption.Offset.TotalSeconds}s) ");
+            mdSb.Append(text);
+        }
+
+        return (rawSb.ToString().Trim(), mdSb.ToString().TrimEnd());
+    }
+
+    // Writes UTF-8 without a BOM and ends with the platform newline, matching Console.WriteLine.
+    internal static void WriteOutput(Stream stream, Output output, bool compact)
+    {
+        var context = new YtxJsonContext(new JsonSerializerOptions
+        {
+            WriteIndented = !compact,
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        });
+
+        // Serializing to a string sizes its buffer for the worst-case escape of the whole
+        // transcript and then copies it as UTF-16. Writing UTF-8 to the stream avoids both.
+        JsonSerializer.Serialize(stream, output, context.Output);
+        stream.Write(Encoding.UTF8.GetBytes(Environment.NewLine));
+        stream.Flush();
     }
 
     internal static (Options? Options, string? Error) ParseOptions(string[] args)
@@ -269,18 +302,38 @@ static class Program
         || name.Equals(preference, StringComparison.OrdinalIgnoreCase)
         || name.Contains(preference, StringComparison.OrdinalIgnoreCase);
 
-    internal static string ToHhMmSs(TimeSpan ts)
+    internal static string ToHhMmSs(TimeSpan ts) => AppendTimestamp(new StringBuilder(), ts).ToString();
+
+    private static StringBuilder AppendTimestamp(StringBuilder sb, TimeSpan ts)
     {
         int h = (int)ts.TotalHours;
-        int m = ts.Minutes;
-        int s = ts.Seconds;
-        return h > 0 ? $"{h:00}:{m:00}:{s:00}" : $"{m:00}:{s:00}";
+        return h > 0
+            ? sb.Append($"{h:00}:{ts.Minutes:00}:{ts.Seconds:00}")
+            : sb.Append($"{ts.Minutes:00}:{ts.Seconds:00}");
     }
+
+    [GeneratedRegex(@"\s+")]
+    private static partial Regex WhitespaceRun();
 
     internal static string NormalizeCaption(string text)
     {
         if (string.IsNullOrWhiteSpace(text)) return "";
-        text = Regex.Replace(text, @"\s+", " ").Trim();
-        return text.Replace("&nbsp;", " ");
+        // \s+ also matches every single space, so the regex would allocate a new string
+        // for nearly every caption. Only run it when the text is not already normalized.
+        if (NeedsWhitespaceNormalizing(text)) text = WhitespaceRun().Replace(text, " ").Trim();
+        return text.Contains("&nbsp;") ? text.Replace("&nbsp;", " ") : text;
+    }
+
+    // True when the text has leading or trailing whitespace, a run of spaces, or any
+    // whitespace other than a plain space. char.IsWhiteSpace and the regex \s match the same set.
+    private static bool NeedsWhitespaceNormalizing(ReadOnlySpan<char> text)
+    {
+        if (char.IsWhiteSpace(text[0]) || char.IsWhiteSpace(text[^1])) return true;
+        for (var i = 1; i < text.Length; i++)
+        {
+            var c = text[i];
+            if (c == ' ' ? text[i - 1] == ' ' : char.IsWhiteSpace(c)) return true;
+        }
+        return false;
     }
 }
