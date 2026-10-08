@@ -1,8 +1,9 @@
 # Packaging templates for native ytx binaries
 
-**Status: exploratory.** Nothing here is wired up yet. These templates assume the `native.yml`
-workflow has attached NativeAOT archives and a `SHA256SUMS` file to a GitHub Release. The NuGet
-tool (`dotnet tool install -g solrevdev.ytx`) is unchanged and stays the primary install route.
+**Status: templates only.** `native.yml` attaches NativeAOT archives and a `SHA256SUMS` file to each
+GitHub Release, and the main README documents installing them by hand. The Homebrew formula and Scoop
+manifest below are not published yet. The NuGet tool (`dotnet tool install -g solrevdev.ytx`) is
+unchanged and stays the primary install route.
 
 ## Release assets these templates expect
 
