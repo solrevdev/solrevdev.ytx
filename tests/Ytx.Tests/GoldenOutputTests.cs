@@ -126,6 +126,19 @@ public class GoldenOutputTests
         Assert.Equal(Legacy.NormalizeCaption(text), Program.NormalizeCaption(text));
     }
 
+    [Fact]
+    public void NormalizeCaption_MatchesLegacyOutputForEveryBmpCharacter()
+    {
+        for (var code = 0; code <= char.MaxValue; code++)
+        {
+            var c = ((char)code).ToString();
+            foreach (var text in new[] { "a" + c + "b", c + "a", "a" + c, "a " + c + "b" })
+            {
+                Assert.Equal(Legacy.NormalizeCaption(text), Program.NormalizeCaption(text));
+            }
+        }
+    }
+
     public static TheoryData<string> EdgeCaseTextData()
     {
         var data = new TheoryData<string>();

@@ -35,7 +35,7 @@ partial class YtxJsonContext : JsonSerializerContext
 {
 }
 
-static class Program
+static partial class Program
 {
     private const string Usage = """
         ytx extracts YouTube video metadata and captions as JSON.
@@ -190,12 +190,18 @@ static class Program
             var text = NormalizeCaption(caption.Text);
             if (string.IsNullOrWhiteSpace(text)) continue;
 
-            if (rawSb.Length > 0) rawSb.Append(' ');
+            if (rawSb.Length > 0)
+            {
+                rawSb.Append(' ');
+                mdSb.Append(Environment.NewLine);
+            }
             rawSb.Append(text);
 
-            var timestamp = ToHhMmSs(caption.Offset);
-            var link = $"https://www.youtube.com/watch?v={videoId}&t={(int)caption.Offset.TotalSeconds}s";
-            mdSb.AppendLine($"- [{timestamp}]({link}) {text}");
+            // Appending interpolated strings to a StringBuilder formats in place, with no temporary strings.
+            mdSb.Append("- [");
+            AppendTimestamp(mdSb, caption.Offset);
+            mdSb.Append($"](https://www.youtube.com/watch?v={videoId}&t={(int)caption.Offset.TotalSeconds}s) ");
+            mdSb.Append(text);
         }
 
         return (rawSb.ToString().Trim(), mdSb.ToString().TrimEnd());
@@ -296,18 +302,38 @@ static class Program
         || name.Equals(preference, StringComparison.OrdinalIgnoreCase)
         || name.Contains(preference, StringComparison.OrdinalIgnoreCase);
 
-    internal static string ToHhMmSs(TimeSpan ts)
+    internal static string ToHhMmSs(TimeSpan ts) => AppendTimestamp(new StringBuilder(), ts).ToString();
+
+    private static StringBuilder AppendTimestamp(StringBuilder sb, TimeSpan ts)
     {
         int h = (int)ts.TotalHours;
-        int m = ts.Minutes;
-        int s = ts.Seconds;
-        return h > 0 ? $"{h:00}:{m:00}:{s:00}" : $"{m:00}:{s:00}";
+        return h > 0
+            ? sb.Append($"{h:00}:{ts.Minutes:00}:{ts.Seconds:00}")
+            : sb.Append($"{ts.Minutes:00}:{ts.Seconds:00}");
     }
+
+    [GeneratedRegex(@"\s+")]
+    private static partial Regex WhitespaceRun();
 
     internal static string NormalizeCaption(string text)
     {
         if (string.IsNullOrWhiteSpace(text)) return "";
-        text = Regex.Replace(text, @"\s+", " ").Trim();
-        return text.Replace("&nbsp;", " ");
+        // \s+ also matches every single space, so the regex would allocate a new string
+        // for nearly every caption. Only run it when the text is not already normalized.
+        if (NeedsWhitespaceNormalizing(text)) text = WhitespaceRun().Replace(text, " ").Trim();
+        return text.Contains("&nbsp;") ? text.Replace("&nbsp;", " ") : text;
+    }
+
+    // True when the text has leading or trailing whitespace, a run of spaces, or any
+    // whitespace other than a plain space. char.IsWhiteSpace and the regex \s match the same set.
+    private static bool NeedsWhitespaceNormalizing(ReadOnlySpan<char> text)
+    {
+        if (char.IsWhiteSpace(text[0]) || char.IsWhiteSpace(text[^1])) return true;
+        for (var i = 1; i < text.Length; i++)
+        {
+            var c = text[i];
+            if (c == ' ' ? text[i - 1] == ' ' : char.IsWhiteSpace(c)) return true;
+        }
+        return false;
     }
 }
