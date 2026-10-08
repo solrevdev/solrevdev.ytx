@@ -11,15 +11,15 @@ This is `ytx`, a .NET Global Tool that extracts YouTube video metadata and trans
 **Main Components:**
 - `src/Ytx/Program.cs` - Single-file console application with async main method
 - `Input` record - Simple DTO for JSON input parsing
-- `Output` class - JSON output structure with 5 fields: url, title, description, transcriptRaw, transcript
+- `Output` class - JSON output contract (1.1.0): canonical url, videoId, metadata, caption status and track, transcriptRaw, transcript. Property order is the field order; README documents each field
 - Uses YoutubeExplode library for YouTube API interactions and caption extraction
 
 **Data Flow:**
 1. Input validation (command-line args or JSON via stdin)
 2. YouTube video data extraction via YoutubeExplode
 3. Caption track discovery and selection (prefers English, falls back to any available)
-4. Transcript formatting (raw text + markdown with timestamped links)
-5. JSON serialization to stdout
+4. Transcript formatting (raw text + markdown with timestamped links) and caption status
+5. JSON serialization to stdout, or a transcript-only format (`--format md|txt|srt|vtt`) built from the normalized segments
 
 ## Development Commands
 
@@ -51,9 +51,9 @@ dotnet tool install -g solrevdev.ytx --add-source ./nupkg
 
 ## Important Implementation Details
 
-**Caption Detection Logic:** Orders available tracks by English language preference, then by auto-generated status. YoutubeExplode 6.5.6 provides the current video and caption extraction implementation.
+**Caption Detection Logic:** `SelectTrack` ranks tracks by exact language code, then exact name, then code prefix (`en` matches `en-GB`), then name substring (only for preferences longer than 3 characters, because "fr" is inside "Afrikaans"). Ties prefer a manual track over an auto-generated one. Unknown languages fall back to English, then any track.
 
-**Error Handling:** Returns specific exit codes (0=success, 1=unexpected error, 2=usage error) for scriptable integration.
+**Error Handling:** Returns specific exit codes (0=success, 1=unexpected error, 2=usage error, 3=metadata written but captions blocked or failed, 130=Ctrl+C) for scriptable integration. Caption failures set `captionStatus` and `captionError`; only YouTube and HTTP exceptions are caught there, so bugs still fail with exit 1.
 
 **JSON Input/Output:** Supports both command-line arguments and JSON via stdin. Output uses `UnsafeRelaxedJsonEscaping` for proper Unicode handling in video descriptions.
 
@@ -61,7 +61,7 @@ dotnet tool install -g solrevdev.ytx --add-source ./nupkg
 
 ## Key Dependencies
 
-- `YoutubeExplode` 6.5.6 - Core YouTube data extraction
+- `YoutubeExplode` 6.6.2 - Core YouTube data extraction
 - .NET 8.0/9.0/10.0 target frameworks with nullable reference types enabled
 - System.Text.Json for serialization
 - System.Text.RegularExpressions for caption text normalization
