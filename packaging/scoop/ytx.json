@@ -1,0 +1,28 @@
+{
+    "version": "@@VERSION@@",
+    "description": "Extract YouTube title, description and transcript (raw + Markdown) as JSON.",
+    "homepage": "https://github.com/solrevdev/solrevdev.ytx",
+    "license": "MIT",
+    "notes": "Not related to koguchic/ytx (Rust, cargo install ytx-cli), which also installs a 'ytx' command.",
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/solrevdev/solrevdev.ytx/releases/download/v@@VERSION@@/ytx-@@VERSION@@-win-x64.zip",
+            "hash": "@@SHA256_WIN_X64@@"
+        }
+    },
+    "bin": "ytx.exe",
+    "checkver": {
+        "github": "https://github.com/solrevdev/solrevdev.ytx"
+    },
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/solrevdev/solrevdev.ytx/releases/download/v$version/ytx-$version-win-x64.zip"
+            }
+        },
+        "hash": {
+            "url": "$baseurl/SHA256SUMS",
+            "regex": "$sha256\\s+\\*?$basename"
+        }
+    }
+}
