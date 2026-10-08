@@ -17,8 +17,8 @@
 
     <!-- NuGet metadata -->
     <Authors>solrevdev</Authors>
-    <PackageDescription>Extract YouTube title, description, and transcript (raw + Markdown) as JSON.</PackageDescription>
-    <PackageTags>YouTube;transcript;captions;cli;dotnet-tool;json</PackageTags>
+    <PackageDescription>Extract YouTube metadata and transcripts as JSON, Markdown, plain text, SRT or WebVTT, with a stable output contract for scripts and agents.</PackageDescription>
+    <PackageTags>YouTube;transcript;captions;subtitles;srt;vtt;cli;dotnet-tool;json</PackageTags>
     <RepositoryUrl>https://github.com/solrevdev/solrevdev.ytx</RepositoryUrl>
     <PackageProjectUrl>https://github.com/solrevdev/solrevdev.ytx</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>

@@ -11,13 +11,13 @@ This is `ytx`, a .NET Global Tool that extracts YouTube video metadata and trans
 **Main Components:**
 - `src/Ytx/Program.cs` - Single-file console application with async main method
 - `Input` record - Simple DTO for JSON input parsing
-- `Output` class - JSON output contract (1.1.0): canonical url, videoId, metadata, caption status and track, transcriptRaw, transcript. Property order is the field order; README documents each field
+- `Output` class - JSON output contract (1.1.0): canonical url, videoId, metadata, caption status and track, transcriptRaw, transcript, segments. Property order is the field order; README documents each field. Changing a field name or order is a breaking change
 - Uses YoutubeExplode library for YouTube API interactions and caption extraction
 
 **Data Flow:**
 1. Input validation (command-line args or JSON via stdin)
 2. YouTube video data extraction via YoutubeExplode
-3. Caption track discovery and selection (prefers English, falls back to any available)
+3. Caption track discovery and selection (`SelectTrack`: best `--language` match, then English, then manual over auto-generated)
 4. Transcript formatting (raw text + markdown with timestamped links) and caption status
 5. JSON serialization to stdout, or a transcript-only format (`--format md|txt|srt|vtt`) built from the normalized segments
 
@@ -40,7 +40,7 @@ dotnet tool install -g solrevdev.ytx --add-source ./nupkg
 ## CI/CD Integration
 
 **GitHub Actions Workflow** (`.github/workflows/publish.yml`):
-- Pull requests that change the project or workflow run read-only restore, build, and pack validation
+- Pull requests that change the project, tests or workflow run read-only restore, build, test (net8.0, net9.0, net10.0) and pack validation
 - Pushes to `master` automatically use a patch bump; manual dispatch can select patch, minor, or major
 - Builds and packs before publishing the exact package to NuGet with `--skip-duplicate`
 - Only after NuGet publication succeeds, atomically pushes the version commit and tag
@@ -48,6 +48,10 @@ dotnet tool install -g solrevdev.ytx --add-source ./nupkg
 - Grants `contents: write` only to the publishing job and serializes releases with concurrency controls
 
 **Manual Release:** GitHub Actions → "Publish NuGet (ytx)" → "Run workflow"
+
+**Batching PRs into one release:** merge each PR with `[skip ci]` in the merge commit subject so no patch is published, then run the workflow manually with the bump you want. Merge stacked PRs one at a time: retarget the next PR to `master` before deleting the merged branch, then update it so CI runs.
+
+**Other workflows:** `codeql.yml` analyzes C# on PRs and weekly. `.github/dependabot.yml` proposes weekly Actions and NuGet updates. Actions are pinned to commit SHAs with a version comment.
 
 ## Important Implementation Details
 
