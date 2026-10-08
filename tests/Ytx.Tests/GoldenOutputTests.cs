@@ -6,7 +6,8 @@ using Xunit;
 using YoutubeExplode.Videos.ClosedCaptions;
 
 // Proves the transcript stays byte-identical to v1.0.7 and pins the 1.1.0 JSON contract.
-// All caption text is synthetic.
+// The one intended difference: 1.1.0 replaces &nbsp; before collapsing whitespace, so the
+// legacy reference is given text with entities already replaced. All caption text is synthetic.
 public class GoldenOutputTests
 {
     private const string VideoId = "AbCdEfGhIjK";
@@ -112,7 +113,7 @@ public class GoldenOutputTests
     {
         var captions = Captions(set);
 
-        var expected = Legacy.BuildTranscript(VideoId, captions);
+        var expected = Legacy.BuildTranscript(VideoId, captions.Select(c => Caption(WithoutEntities(c.Text), c.Offset)));
         var actual = Program.BuildTranscript(VideoId, captions);
 
         Assert.Equal(expected.Raw, actual.Raw);
@@ -123,7 +124,7 @@ public class GoldenOutputTests
     [MemberData(nameof(EdgeCaseTextData))]
     public void NormalizeCaption_MatchesLegacyOutput(string text)
     {
-        Assert.Equal(Legacy.NormalizeCaption(text), Program.NormalizeCaption(text));
+        Assert.Equal(Legacy.NormalizeCaption(WithoutEntities(text)), Program.NormalizeCaption(text));
     }
 
     [Fact]
@@ -138,6 +139,8 @@ public class GoldenOutputTests
             }
         }
     }
+
+    private static string WithoutEntities(string text) => text.Replace("&nbsp;", " ");
 
     public static TheoryData<string> EdgeCaseTextData()
     {
