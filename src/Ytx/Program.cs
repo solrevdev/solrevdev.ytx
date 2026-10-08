@@ -1,6 +1,8 @@
 using System.Reflection;
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using YoutubeExplode;
 using YoutubeExplode.Videos;
@@ -23,6 +25,14 @@ class Output
     public string description { get; set; } = "";
     public string transcriptRaw { get; set; } = "";
     public string transcript { get; set; } = "";
+}
+
+// Source-generated metadata skips reflection setup at startup and keeps JSON
+// working under trimming and NativeAOT, where reflection-based serialization is disabled.
+[JsonSerializable(typeof(Input))]
+[JsonSerializable(typeof(Output))]
+partial class YtxJsonContext : JsonSerializerContext
+{
 }
 
 static class Program
@@ -85,8 +95,8 @@ static class Program
             {
                 try
                 {
-                    var input = JsonSerializer.Deserialize<Input>(stdin.Trim(),
-                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                    var input = JsonSerializer.Deserialize(stdin.Trim(),
+                        new YtxJsonContext(new JsonSerializerOptions { PropertyNameCaseInsensitive = true }).Input);
                     url = input?.url;
                 }
                 catch (JsonException ex)
@@ -194,13 +204,16 @@ static class Program
     // Writes UTF-8 without a BOM and ends with the platform newline, matching Console.WriteLine.
     internal static void WriteOutput(Stream stream, Output output, bool compact)
     {
-        var json = JsonSerializer.Serialize(output, new JsonSerializerOptions
+        var context = new YtxJsonContext(new JsonSerializerOptions
         {
             WriteIndented = !compact,
-            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
         });
 
-        stream.Write(Encoding.UTF8.GetBytes(json + Environment.NewLine));
+        // Serializing to a string sizes its buffer for the worst-case escape of the whole
+        // transcript and then copies it as UTF-16. Writing UTF-8 to the stream avoids both.
+        JsonSerializer.Serialize(stream, output, context.Output);
+        stream.Write(Encoding.UTF8.GetBytes(Environment.NewLine));
         stream.Flush();
     }
 
