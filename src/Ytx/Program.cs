@@ -134,24 +134,7 @@ static class Program
                     if (track != null)
                     {
                         var captions = await client.Videos.ClosedCaptions.GetAsync(track);
-                        var rawSb = new StringBuilder();
-                        var mdSb = new StringBuilder();
-
-                        foreach (var caption in captions.Captions)
-                        {
-                            var text = NormalizeCaption(caption.Text);
-                            if (string.IsNullOrWhiteSpace(text)) continue;
-
-                            if (rawSb.Length > 0) rawSb.Append(' ');
-                            rawSb.Append(text);
-
-                            var timestamp = ToHhMmSs(caption.Offset);
-                            var link = $"https://www.youtube.com/watch?v={video.Id}&t={(int)caption.Offset.TotalSeconds}s";
-                            mdSb.AppendLine($"- [{timestamp}]({link}) {text}");
-                        }
-
-                        transcriptRaw = rawSb.ToString().Trim();
-                        transcriptMd = mdSb.ToString().TrimEnd();
+                        (transcriptRaw, transcriptMd) = BuildTranscript(video.Id.Value, captions.Captions);
                     }
                     else
                     {
@@ -173,14 +156,11 @@ static class Program
                 transcript = transcriptMd
             };
 
-            var json = JsonSerializer.Serialize(output, new JsonSerializerOptions
-            {
-                WriteIndented = !options.Compact,
-                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-            });
-
             Console.OutputEncoding = Encoding.UTF8;
-            Console.WriteLine(json);
+            using (var stdout = Console.OpenStandardOutput())
+            {
+                WriteOutput(stdout, output, options.Compact);
+            }
             return 0;
         }
         catch (Exception ex)
@@ -188,6 +168,40 @@ static class Program
             Console.Error.WriteLine($"Error: {ex.Message}");
             return 1;
         }
+    }
+
+    internal static (string Raw, string Markdown) BuildTranscript(string videoId, IEnumerable<ClosedCaption> captions)
+    {
+        var rawSb = new StringBuilder();
+        var mdSb = new StringBuilder();
+
+        foreach (var caption in captions)
+        {
+            var text = NormalizeCaption(caption.Text);
+            if (string.IsNullOrWhiteSpace(text)) continue;
+
+            if (rawSb.Length > 0) rawSb.Append(' ');
+            rawSb.Append(text);
+
+            var timestamp = ToHhMmSs(caption.Offset);
+            var link = $"https://www.youtube.com/watch?v={videoId}&t={(int)caption.Offset.TotalSeconds}s";
+            mdSb.AppendLine($"- [{timestamp}]({link}) {text}");
+        }
+
+        return (rawSb.ToString().Trim(), mdSb.ToString().TrimEnd());
+    }
+
+    // Writes UTF-8 without a BOM and ends with the platform newline, matching Console.WriteLine.
+    internal static void WriteOutput(Stream stream, Output output, bool compact)
+    {
+        var json = JsonSerializer.Serialize(output, new JsonSerializerOptions
+        {
+            WriteIndented = !compact,
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        });
+
+        stream.Write(Encoding.UTF8.GetBytes(json + Environment.NewLine));
+        stream.Flush();
     }
 
     internal static (Options? Options, string? Error) ParseOptions(string[] args)
