@@ -29,7 +29,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="YoutubeExplode" Version="6.5.6" />
+    <PackageReference Include="YoutubeExplode" Version="6.6.2" />
   </ItemGroup>
 
   <ItemGroup>
