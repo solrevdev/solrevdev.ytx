@@ -42,3 +42,6 @@
 
 # Razor files
 *.razor linguist-language=C#
+
+# The NuGet icon is packed from a plain checkout, so keep it out of LFS.
+assets/icon.png !filter !diff !merge binary
