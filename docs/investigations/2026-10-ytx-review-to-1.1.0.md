@@ -1,10 +1,11 @@
-# From review to 1.1.0: fixing ytx's caption choice and output contract
+# From review to 1.2.0: fixing ytx's caption choice, output contract and chapters
 
 **Date:** 8 October 2026
-**Status:** Done. Issue #3 is closed by the 1.1.0 release. NativeAOT (PR #6) is the next piece of work.
-**Release:** [v1.1.0](https://github.com/solrevdev/solrevdev.ytx/releases/tag/v1.1.0)
+**Status:** Done. Issue #3 was closed by 1.1.0, and chapters followed in 1.2.0. NativeAOT (PR #6) is the next piece of work.
+**Releases:** [v1.1.0](https://github.com/solrevdev/solrevdev.ytx/releases/tag/v1.1.0) (21:40 UTC) and [v1.2.0](https://github.com/solrevdev/solrevdev.ytx/releases/tag/v1.2.0) (22:15 UTC), 8 October 2026
+**File name:** this file keeps its original name because issues and the README link to it.
 
-This is the source document for a blog post. It collects the facts, evidence, decisions and traps from the work that took ytx from v1.0.7 to 1.1.0. It is not the post itself. The earlier part of the story, from the first review through v1.0.8, is in issue [#7](https://github.com/solrevdev/solrevdev.ytx/issues/7). The NativeAOT and allocation investigation has its own write-up, [2026-10-native-aot-and-allocations.md](2026-10-native-aot-and-allocations.md), on the `feat/native-aot` branch until PR #6 merges.
+This is the source document for a blog post. It collects the facts, evidence, decisions and traps from the work that took ytx from v1.0.7 to 1.2.0. It is not the post itself. The earlier part of the story, from the first review through v1.0.8, is in issue [#7](https://github.com/solrevdev/solrevdev.ytx/issues/7). The NativeAOT and allocation investigation has its own write-up, [2026-10-native-aot-and-allocations.md](2026-10-native-aot-and-allocations.md), on the `feat/native-aot` branch until PR #6 merges.
 
 **Rule for the post:** don't publish captured YouTube caption text. Use titles, video IDs, byte counts, exit codes and timings only. The few short caption lines in this document came from test output and can be cut.
 
@@ -19,13 +20,14 @@ On 8 October 2026 a review of v1.0.7 found that ytx could silently return the wr
 - **It fell back silently.** An unknown language returned English with exit 0 and nothing on stderr.
 - **It hid failures.** Every caption error looked like "no captions".
 
-Three versions came out of the work:
+Four versions came out of the work:
 
 | Version | What it brought |
 |---|---|
 | 1.0.7 | The version that was reviewed. |
 | 1.0.8 | PR #5: source-generated JSON, output streamed to stdout, fewer allocations. Output stayed byte-identical. This made NativeAOT possible. |
 | 1.1.0 | PRs #8–#13: correct caption track choice, a richer and stable JSON contract with `captionStatus`, exit code 3, `--timeout`, Ctrl+C handling, `--format md/txt/srt/vtt`, `--segments`, `--list-languages`, `--proxy`, YoutubeExplode 6.6.2, LICENSE, CI hardening and package metadata. Shipped as one minor release. |
+| 1.2.0 | PR #17: a `chapters` field parsed from the description with YouTube's rules, and a `## Title` heading per chapter in the Markdown transcript (#16). |
 
 The next step is NativeAOT binaries (PR #6), which are ready but deliberately left for a separate round of work.
 
@@ -38,13 +40,17 @@ The next step is NativeAOT binaries (PR #6), which are ready but deliberately le
 | [#3](https://github.com/solrevdev/solrevdev.ytx/issues/3) | Review of v1.0.7. Bugs 1–4, smaller issues, competitor survey and suggested plan. Closed by 1.1.0. |
 | [#4](https://github.com/solrevdev/solrevdev.ytx/issues/4) | NativeAOT and allocation findings: startup 38 ms to 8.6 ms, about 6x less CPU, half the memory. Still open. |
 | [#5](https://github.com/solrevdev/solrevdev.ytx/pull/5) | Source-generated JSON and fewer allocations. Merged and released as v1.0.8. |
-| [#6](https://github.com/solrevdev/solrevdev.ytx/pull/6) | NativeAOT builds, benchmarks, smoke tests, native CI and packaging templates. Finished on the 1.1.0 contract. The next piece of work. |
+| [#6](https://github.com/solrevdev/solrevdev.ytx/pull/6) | NativeAOT builds, benchmarks, smoke tests, native CI and packaging templates. Up to date with 1.2.0 and targets `master`, with the README's native install docs. The next piece of work. |
 | [#7](https://github.com/solrevdev/solrevdev.ytx/issues/7) | Blog notes for the first part (review to v1.0.8), with the decided order of work. |
 | [#8](https://github.com/solrevdev/solrevdev.ytx/pull/8) | Caption track selection fix and a stderr warning on fallback. Bugs 1–3. |
 | [#9](https://github.com/solrevdev/solrevdev.ytx/pull/9) | Housekeeping: YoutubeExplode 6.6.2, LICENSE, stale doc removed. |
 | [#10](https://github.com/solrevdev/solrevdev.ytx/pull/10) | The 1.1.0 output contract: metadata, `captionStatus`, track fields, canonical `url`, exit 3. Bug 4. |
 | [#11](https://github.com/solrevdev/solrevdev.ytx/pull/11) | CLI polish: `--timeout`, Ctrl+C exits 130, `&nbsp;` fix, help gaps. |
 | [#12](https://github.com/solrevdev/solrevdev.ytx/pull/12) | Features: `--format`, `--segments`, `--list-languages`, `--proxy`. |
+| [#14](https://github.com/solrevdev/solrevdev.ytx/pull/14) | Release prep for 1.1.0: CHANGELOG, package description, this document. |
+| [#15](https://github.com/solrevdev/solrevdev.ytx/pull/15) | Dependabot: checkout v7 and setup-dotnet v6. Held until after #6, because only a real release tests the publish job's `git push`. |
+| [#16](https://github.com/solrevdev/solrevdev.ytx/issues/16) | Design for chapters from the description. Closed by #17. |
+| [#17](https://github.com/solrevdev/solrevdev.ytx/pull/17) | Chapters. Released as 1.2.0. |
 | [#13](https://github.com/solrevdev/solrevdev.ytx/pull/13) | CI and packaging: SHA-pinned actions, Dependabot, CodeQL, tests on three runtimes, icon, symbols, CHANGELOG. |
 
 ### Where things live
@@ -88,7 +94,12 @@ Times are UTC on 8 October 2026. The first part, up to v1.0.8 at 19:23, is cover
 | about 21:22 | PR #6 is merged up to the stack, retargeted onto #12 and marked ready. All five native builds pass. |
 | about 21:25 | The user drops MCP mode from scope. |
 | 21:30 | PR #9 merged. The rest follow in order (see below). |
-| after 21:40 | 1.1.0 published through a manual minor release. Issue #3 closed. |
+| 21:39–21:40 | PR #14 merged. 1.1.0 published through a manual minor release. Dependabot opens #15 straight away. |
+| about 21:45 | Issue #3 closed. #6 is moved to `master`, brought up to 1.1.0, and gets the native install docs. |
+| about 22:00 | The user asks why chapters were left out. |
+| 22:09 | Issue #16 opened with the chapters design. |
+| 22:12–22:14 | PR #17 opened, passed CI and merged. |
+| 22:15 | 1.2.0 published. The global tool was updated from NuGet and tested live. #6 was brought up to 1.2.0. |
 
 ### How the work was split across Claude sessions
 
@@ -243,7 +254,8 @@ Tests went to 118.
 
 ### 4.7 NativeAOT finished but not merged (PR #6)
 
-- **Merged up to the stack.** The `feat/native-aot` branch now has the 1.1.0 contract, and the PR was retargeted onto #12.
+- **Merged up to date.** It was first merged up to the stack and retargeted onto #12. After the releases it was moved to `master` and brought up to 1.2.0.
+- **README install docs.** A comparison of the NuGet tool and the native binary, with when to choose each. Checksum-verified install steps for macOS (Gatekeeper note), Linux (glibc 2.34+, OpenSSL) and Windows (PowerShell), a GitHub Actions step, and how to build a binary yourself.
 - **Smoke test extended.** It now covers the new usage errors and a refused `--proxy` connection on port 9. That runs the HttpClient, proxy and error paths offline.
 - **Release trigger.** `publish.yml` dispatches `native.yml` with the new tag after each release.
 - **Native workflow actions pinned to SHAs.**
@@ -251,7 +263,8 @@ Tests went to 118.
   - The binary is 10.6 MB, with no trim or AOT warnings.
   - AOT and JIT output was byte-identical, with the same exit codes, in 7 modes.
   - All 15 smoke checks pass.
-  - CI passed on osx-arm64, osx-x64, linux-x64, linux-arm64 and win-x64 ([run 37846332490](https://github.com/solrevdev/solrevdev.ytx/actions/runs/37846332490)).
+  - CI passed on osx-arm64, osx-x64, linux-x64, linux-arm64 and win-x64 ([run 37846332490](https://github.com/solrevdev/solrevdev.ytx/actions/runs/37846332490)), and again after 1.2.0 was merged in.
+  - After 1.2.0, the AOT binary's `-c` and `-f md` output for `NYFGCESmikA` was byte-identical to the NuGet 1.2.0 tool.
 
 ## 5. Traps and lessons
 
@@ -290,6 +303,7 @@ Each of these is worth a paragraph in the post.
 | After #10 | 94 |
 | After #11 | 105 |
 | After #12 | 118 |
+| After #17 (1.2.0) | 145 |
 | #13 | 70 on each of net8.0 and net10.0 locally. net9.0 was not run locally because the runtime wasn't installed; CI runs all three |
 | AOT smoke checks (#6) | 15 of 15 |
 | Full run on `iG9CE55wbtY`, AOT, 16 runs | 1.10–1.43 s |
@@ -355,7 +369,7 @@ PR #6, NativeAOT, is the next piece of work:
 ### Possible titles
 
 - "My own tool picked Afrikaans: reviewing ytx a year on"
-- "From 'grab a transcript' to 1.1.0 in an evening"
+- "From 'grab a transcript' to 1.2.0 in an evening"
 - "ytx 1.1.0: the right captions, a real contract, and exit codes that mean something"
 - "Handing off between AI coding sessions: a ytx case study"
 
@@ -372,7 +386,8 @@ PR #6, NativeAOT, is the next piece of work:
 9. **CI and packaging.** SHA pins, the LFS icon trap, symbols.
 10. **Workflow.** Session handoff, stacked PRs, one release with `[skip ci]` and a manual minor run.
 11. **What we left out and why.** MCP, deduplication, branch protection.
-12. **Next: NativeAOT.**
+12. **The follow-up.** "Why no chapters?" A scope call that should have been a question, shipped as 1.2.0 within the hour (section 6a).
+13. **Next: NativeAOT.**
 
 ### Commands to reproduce
 
@@ -387,6 +402,10 @@ for l in fr es ja zh xx; do ytx -l "$l" -c iG9CE55wbtY | jq -r '.captionLanguage
 
 # Bug 3: the fallback warning on stderr
 ytx -l xx iG9CE55wbtY > /dev/null
+
+# Chapters (expect 23, and 23 headings in Markdown)
+ytx --metadata-only NYFGCESmikA | jq '.chapters | length'
+ytx -f md NYFGCESmikA | grep -c '^## '
 
 # Track list, formats and segments
 ytx --list-languages iG9CE55wbtY | jq '.tracks | length'
