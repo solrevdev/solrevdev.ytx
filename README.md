@@ -243,7 +243,7 @@ The GitHub Actions workflow uses NuGet Trusted Publishing and does not need a st
 ## Background
 
 - [CHANGELOG.md](CHANGELOG.md) lists the changes in each release.
-- [docs/investigations/2026-10-ytx-review-to-1.1.0.md](docs/investigations/2026-10-ytx-review-to-1.1.0.md) tells the story of the v1.0.7 review and the 1.1.0 release: the bugs, evidence, decisions and traps.
+- [docs/investigations/2026-10-ytx-review-to-1.1.0.md](docs/investigations/2026-10-ytx-review-to-1.1.0.md) tells the story from the v1.0.7 review to the 1.1.0 and 1.2.0 releases: the bugs, evidence, decisions and traps. Issue [#7](https://github.com/solrevdev/solrevdev.ytx/issues/7) has the earlier notes.
 
 ## Dependencies
 
