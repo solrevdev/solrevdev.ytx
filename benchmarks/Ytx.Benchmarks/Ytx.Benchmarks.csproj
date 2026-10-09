@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Standalone benchmark and verification harness for ytx's caption formatting and JSON output.
+    It is not referenced by src/Ytx or tests/Ytx.Tests, and CI builds those projects by path,
+    so this project never takes part in `dotnet test` or `dotnet pack` for the tool.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Ytx.Benchmarks</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>false</IsTestProject>
+    <!-- Match what a CLI process gets by default; server GC would distort allocation costs. -->
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" Version="0.15.2" />
+    <!-- Only the `capture` command uses this. Keep it on the same version as src/Ytx. -->
+    <PackageReference Include="YoutubeExplode" Version="6.5.6" />
+  </ItemGroup>
+</Project>

@@ -35,7 +35,7 @@ A .NET global tool that extracts YouTube video metadata and transcripts as JSON.
 - 🌍 **Captions-aware** — Prefers human-written captions in your language, reports which track it used
 - 📝 **Markdown transcript** — Human-readable format with timestamped links, split into sections by chapter
 - 📑 **Chapters** — Read from the video description, using YouTube's own rules
-- 🚀 **Cross-platform** — Works on macOS, Windows, Linux (.NET 8/9/10)
+- 🚀 **Cross-platform** — Works on macOS, Windows, Linux (.NET 8/9/10), or as a native binary with no .NET runtime
 - ⚡ **Fast & lightweight** — No dependencies beyond .NET and YoutubeExplode
 
 ## Quick Start
@@ -45,6 +45,8 @@ A .NET global tool that extracts YouTube video metadata and transcripts as JSON.
 ```bash
 dotnet tool install -g solrevdev.ytx
 ```
+
+This needs the .NET 8, 9 or 10 SDK. To run ytx without .NET, use a [native binary](#native-binaries).
 
 ### Usage
 
@@ -123,6 +125,113 @@ ytx --metadata-only --compact "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 dotnet tool update -g solrevdev.ytx
 ```
 
+## Native binaries
+
+Each GitHub Release from the first one after NativeAOT support also has a self-contained binary for each platform. It is compiled ahead of time, so it needs no .NET runtime. The JSON output is byte-for-byte the same as the NuGet tool's.
+
+### NuGet tool or native binary?
+
+| | NuGet tool | Native binary |
+|---|---|---|
+| Needs | .NET 8, 9 or 10 SDK | Nothing on macOS and Windows; OpenSSL and CA certificates on Linux |
+| Install and update | `dotnet tool install/update -g` | Download an archive, or a package manager later (see below) |
+| Startup | about 38 ms | about 9 ms |
+| CPU for a real call | 300–400 ms (mostly JIT) | 47–73 ms |
+| Peak memory | about 110–130 MB | about 55–60 MB |
+| Size | about 1.3 MB plus the runtime | about 10–11 MB, one file |
+| Platforms | Anywhere .NET runs | macOS arm64 and x64, Linux x64 and arm64 (glibc), Windows x64 |
+
+Wall time for a real call is mostly network, about 1–1.5 s either way. The numbers come from [the NativeAOT investigation](docs/investigations/2026-10-native-aot-and-allocations.md).
+
+Choose the native binary when:
+
+- **CI or containers:** there is no .NET SDK, or you don't want to install one just for ytx. A single file in a slim image or on a runner is enough.
+- **Many short calls:** scripts and agents that call ytx in a loop save the JIT start-up and CPU on every call.
+- **Locked-down or minimal machines:** no global tool path, no runtime to keep patched.
+- **Experimenting:** try ytx, or compare it with other tools, without touching your .NET setup.
+
+Stay with the NuGet tool if you already have .NET, want `dotnet tool update`, or are on a platform without a binary (such as Windows arm64 or Alpine/musl).
+
+### Install on macOS
+
+```bash
+VERSION=$(curl -fsSL https://api.github.com/repos/solrevdev/solrevdev.ytx/releases/latest | sed -n 's/.*"tag_name": "v\(.*\)".*/\1/p')
+ARCH=$([ "$(uname -m)" = arm64 ] && echo osx-arm64 || echo osx-x64)
+cd "$(mktemp -d)"
+curl -fsSLO "https://github.com/solrevdev/solrevdev.ytx/releases/download/v$VERSION/ytx-$VERSION-$ARCH.tar.gz"
+curl -fsSLO "https://github.com/solrevdev/solrevdev.ytx/releases/download/v$VERSION/SHA256SUMS"
+shasum -a 256 --ignore-missing -c SHA256SUMS
+tar -xzf "ytx-$VERSION-$ARCH.tar.gz"
+mkdir -p ~/.local/bin && mv ytx ~/.local/bin/   # make sure ~/.local/bin is on your PATH
+ytx --version
+```
+
+The binaries are ad-hoc signed, not notarised. `curl` does not mark files as quarantined, so this works as is. If you download the archive in a browser, Gatekeeper blocks it; clear the flag with `xattr -d com.apple.quarantine ~/.local/bin/ytx`.
+
+### Install on Linux
+
+```bash
+VERSION=$(curl -fsSL https://api.github.com/repos/solrevdev/solrevdev.ytx/releases/latest | sed -n 's/.*"tag_name": "v\(.*\)".*/\1/p')
+ARCH=$([ "$(uname -m)" = aarch64 ] && echo linux-arm64 || echo linux-x64)
+cd "$(mktemp -d)"
+curl -fsSLO "https://github.com/solrevdev/solrevdev.ytx/releases/download/v$VERSION/ytx-$VERSION-$ARCH.tar.gz"
+curl -fsSLO "https://github.com/solrevdev/solrevdev.ytx/releases/download/v$VERSION/SHA256SUMS"
+sha256sum --ignore-missing -c SHA256SUMS
+tar -xzf "ytx-$VERSION-$ARCH.tar.gz"
+mkdir -p ~/.local/bin && mv ytx ~/.local/bin/
+ytx --version
+```
+
+- **glibc 2.34 or newer** is required: Ubuntu 22.04+, Debian 12+, RHEL/Rocky/Alma 9+, Fedora 35+. Alpine (musl) is not supported; use the NuGet tool there.
+- **OpenSSL and CA certificates** are loaded at run time for HTTPS. Slim images often lack them. On Debian or Ubuntu: `apt-get install -y libssl3 ca-certificates` (`libssl3t64` on Ubuntu 24.04).
+- ICU is not needed.
+
+### Install on Windows
+
+```powershell
+$version = (Invoke-RestMethod https://api.github.com/repos/solrevdev/solrevdev.ytx/releases/latest).tag_name.TrimStart('v')
+$base = "https://github.com/solrevdev/solrevdev.ytx/releases/download/v$version"
+$dir = "$env:LOCALAPPDATA\Programs\ytx"
+New-Item -ItemType Directory -Force $dir | Out-Null
+Invoke-WebRequest "$base/ytx-$version-win-x64.zip" -OutFile "$env:TEMP\ytx.zip"
+Invoke-WebRequest "$base/SHA256SUMS" -OutFile "$env:TEMP\SHA256SUMS"
+$expected = (Select-String -SimpleMatch "ytx-$version-win-x64.zip" "$env:TEMP\SHA256SUMS").Line.Split(' ')[0]
+if ((Get-FileHash "$env:TEMP\ytx.zip").Hash -ne $expected) { throw "Checksum mismatch" }
+Expand-Archive "$env:TEMP\ytx.zip" -DestinationPath $dir -Force
+[Environment]::SetEnvironmentVariable('Path', "$([Environment]::GetEnvironmentVariable('Path','User'));$dir", 'User')
+& "$dir\ytx.exe" --version   # open a new terminal to use plain `ytx`
+```
+
+SmartScreen may warn on first run because the binary is not code-signed.
+
+### Use in GitHub Actions
+
+```yaml
+- name: Install ytx
+  env:
+    GH_TOKEN: ${{ github.token }}
+  run: |
+    gh release download --repo solrevdev/solrevdev.ytx --pattern 'ytx-*-linux-x64.tar.gz' --pattern SHA256SUMS
+    sha256sum --ignore-missing -c SHA256SUMS
+    sudo tar -xzf ytx-*-linux-x64.tar.gz -C /usr/local/bin ytx
+    ytx --version
+```
+
+YouTube blocks many cloud IP addresses, so captions often come back as `captionStatus: "blocked"` on hosted runners. Set `HTTPS_PROXY` or pass `--proxy` with a residential proxy.
+
+### Homebrew and Scoop
+
+Not available yet. Templates are in [`packaging/`](packaging/), waiting on a decision to create a Homebrew tap and a Scoop bucket.
+
+### Build a native binary yourself
+
+```bash
+dotnet publish src/Ytx -c Release -f net10.0 -r osx-arm64 -p:PublishAot=true -o out
+scripts/aot/smoke-test.sh out/ytx
+```
+
+Use your platform's runtime identifier (`osx-x64`, `linux-x64`, `linux-arm64`, `win-x64`). NativeAOT cannot cross-compile between operating systems, and it needs the platform's C toolchain (Xcode command-line tools, `clang` and `zlib1g-dev` on Linux, or Visual Studio's C++ workload on Windows).
+
 ## Output Format
 
 Every document has the same keys in the same order. Fields that YouTube does not provide are `null`, never missing.
@@ -195,6 +304,10 @@ dotnet tool install -g solrevdev.ytx --add-source ./nupkg
 ├── assets/icon.svg                  # Package icon source (icon.png is rendered from it)
 ├── CHANGELOG.md                     # Release history
 ├── docs/investigations/             # Write-ups of reviews and investigations
+├── .github/workflows/native.yml    # NativeAOT binaries per platform, attached to releases
+├── scripts/aot/                     # Native publish, benchmark and smoke-test scripts
+├── benchmarks/Ytx.Benchmarks/       # BenchmarkDotNet project (not built by CI)
+├── packaging/                       # Homebrew and Scoop templates
 └── README.md                        # User and maintainer documentation
 ```
 

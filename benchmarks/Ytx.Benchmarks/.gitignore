@@ -1,0 +1,6 @@
+# Captured YouTube captions are third-party content. Never commit them.
+data/
+
+BenchmarkDotNet.Artifacts/
+bin/
+obj/
