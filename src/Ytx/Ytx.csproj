@@ -2,6 +2,8 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <!-- A tool installs its highest TFM; without this it dies when that runtime is removed, as SDK 11's cask upgrade does. -->
+    <RollForward>Major</RollForward>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <!-- Turns on the trim and AOT analyzers in every build so regressions show up early. -->

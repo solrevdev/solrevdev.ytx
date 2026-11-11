@@ -6,6 +6,10 @@ All notable changes to ytx are listed here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- The tool rolls forward to a newer .NET major, so it keeps running when only a later runtime, such as .NET 11, is installed.
+
 ## [1.2.0] - 2026-10-08
 
 ### Added
