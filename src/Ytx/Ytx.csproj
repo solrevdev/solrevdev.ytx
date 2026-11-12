@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
     <!-- A tool installs its highest TFM; without this it dies when that runtime is removed, as SDK 11's cask upgrade does. -->
     <RollForward>Major</RollForward>
     <ImplicitUsings>enable</ImplicitUsings>

@@ -6,6 +6,14 @@ All notable changes to ytx are listed here. The format follows
 
 ## [Unreleased]
 
+### Breaking
+
+- ytx now targets .NET 10 and 11 only. The net8.0 and net9.0 builds are gone because .NET 8 and 9 left support on 10 November 2026. A machine with only .NET 8 or 9 can no longer install new releases. It needs the .NET 10 or 11 runtime. Older ytx versions stay on NuGet for those machines.
+
+### Changed
+
+- Tests and CI run on .NET 10 and 11.
+
 ### Fixed
 
 - The tool rolls forward to a newer .NET major, so it keeps running when only a later runtime, such as .NET 11, is installed.

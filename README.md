@@ -35,7 +35,7 @@ A .NET global tool that extracts YouTube video metadata and transcripts as JSON.
 - 🌍 **Captions-aware** — Prefers human-written captions in your language, reports which track it used
 - 📝 **Markdown transcript** — Human-readable format with timestamped links, split into sections by chapter
 - 📑 **Chapters** — Read from the video description, using YouTube's own rules
-- 🚀 **Cross-platform** — Works on macOS, Windows, Linux (.NET 8/9/10)
+- 🚀 **Cross-platform** — Works on macOS, Windows, Linux (.NET 10/11)
 - ⚡ **Fast & lightweight** — No dependencies beyond .NET and YoutubeExplode
 
 ## Quick Start
@@ -172,7 +172,7 @@ dotnet restore src/Ytx
 # Build
 dotnet build src/Ytx -c Release
 
-# Run the unit tests (on .NET 8, 9 and 10; add -f net8.0 to use one runtime)
+# Run the unit tests (on .NET 10 and 11; add -f net10.0 to use one runtime)
 dotnet test tests/Ytx.Tests -c Release
 
 # Test locally (choose an installed target framework)
@@ -248,7 +248,7 @@ The GitHub Actions workflow uses NuGet Trusted Publishing and does not need a st
 ## Dependencies
 
 - [YoutubeExplode](https://github.com/Tyrrrz/YoutubeExplode) — YouTube video data extraction
-- .NET 8.0+ SDK (for development)
+- .NET 10 and 11 SDKs (for development; tests run on both)
 
 ## License
 

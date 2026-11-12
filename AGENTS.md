@@ -4,7 +4,7 @@ This file provides guidance to coding agents such as Codex and Claude Code when 
 
 ## Project Overview
 
-This is `ytx`, a .NET Global Tool that extracts YouTube video metadata and transcripts as structured JSON. It's packaged as `solrevdev.ytx` on NuGet and targets .NET 8.0, 9.0, and 10.0.
+This is `ytx`, a .NET Global Tool that extracts YouTube video metadata and transcripts as structured JSON. It's packaged as `solrevdev.ytx` on NuGet and targets .NET 10.0 and 11.0.
 
 ## Core Architecture
 
@@ -27,7 +27,7 @@ This is `ytx`, a .NET Global Tool that extracts YouTube video metadata and trans
 # Build and test locally
 dotnet restore src/Ytx
 dotnet build src/Ytx -c Release
-dotnet run --project src/Ytx --framework net8.0 "YOUTUBE_URL"
+dotnet run --project src/Ytx --framework net10.0 "YOUTUBE_URL"
 
 # Package for local testing
 dotnet pack src/Ytx -c Release
@@ -40,7 +40,7 @@ dotnet tool install -g solrevdev.ytx --add-source ./nupkg
 ## CI/CD Integration
 
 **GitHub Actions Workflow** (`.github/workflows/publish.yml`):
-- Pull requests that change the project, tests or workflow run read-only restore, build, test (net8.0, net9.0, net10.0) and pack validation
+- Pull requests that change the project, tests or workflow run read-only restore, build, test (net10.0, net11.0) and pack validation
 - Pushes to `master` automatically use a patch bump; manual dispatch can select patch, minor, or major
 - Builds and packs before publishing the exact package to NuGet with `--skip-duplicate`
 - Only after NuGet publication succeeds, atomically pushes the version commit and tag
@@ -66,7 +66,7 @@ dotnet tool install -g solrevdev.ytx --add-source ./nupkg
 ## Key Dependencies
 
 - `YoutubeExplode` 6.6.2 - Core YouTube data extraction
-- .NET 8.0/9.0/10.0 target frameworks with nullable reference types enabled
+- .NET 10.0/11.0 target frameworks with nullable reference types enabled
 - System.Text.Json for serialization
 - System.Text.RegularExpressions for caption text normalization
 

@@ -5,7 +5,7 @@ This repo is a small .NET global tool (PackageId: `solrevdev.ytx`) that extracts
 
 - Entry points:
   - `src/Ytx/Program.cs` — single-file console app; contains the main flow: input parsing (args or JSON stdin), YoutubeExplode calls, caption selection, transcript normalization, and JSON output.
-  - `src/Ytx/Ytx.csproj` — packaging details (PackAsTool, ToolCommandName=`ytx`), TargetFrameworks (`net8.0;net9.0`), and Version (auto-bumped by CI).
+  - `src/Ytx/Ytx.csproj` — packaging details (PackAsTool, ToolCommandName=`ytx`), TargetFrameworks (`net10.0;net11.0`), and Version (auto-bumped by CI).
 
 - What to change and where:
   - Feature or bugfix touching runtime behavior: edit `Program.cs` and add small, well-scoped tests under `tests/` when applicable.
@@ -14,7 +14,7 @@ This repo is a small .NET global tool (PackageId: `solrevdev.ytx`) that extracts
 - Build / run / package (explicit commands example):
   - Restore: `dotnet restore src/Ytx`
   - Build: `dotnet build src/Ytx -c Release`
-  - Run (manual test): `dotnet run --project src/Ytx --framework net8.0 "<YOUTUBE_URL>"`
+  - Run (manual test): `dotnet run --project src/Ytx --framework net10.0 "<YOUTUBE_URL>"`
   - Pack: `dotnet pack src/Ytx -c Release` (packages to `./nupkg` per csproj)
   - Local tool install for verification: `dotnet tool install -g solrevdev.ytx --add-source ./nupkg`
 
@@ -35,7 +35,7 @@ This repo is a small .NET global tool (PackageId: `solrevdev.ytx`) that extracts
 
 - External dependencies & compatibility:
   - Uses `YoutubeExplode` (pinned to 6.5.4). Avoid upgrading without testing caption extraction end-to-end.
-  - Targets .NET 8 and 9; keep `Nullable` and `ImplicitUsings` enabled to match project style.
+  - Targets .NET 10 and 11; keep `Nullable` and `ImplicitUsings` enabled to match project style.
 
 - Small fixes that are preferred:
   - Add unit tests for any non-trivial parsing/formatting changes.
