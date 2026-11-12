@@ -159,6 +159,14 @@ When `captionStatus` is not `ok`, the caption fields are `null` and both transcr
 
 ## Development
 
+### SDK policy
+
+.NET 10 is the LTS and the baseline. `global.json` asks for SDK 10.0.100 and rolls forward to the latest installed major, so a machine with SDKs 10 and 11 builds with 11.
+
+- With SDK 11 (alone or with 10), the project builds and tests `net10.0` and `net11.0`.
+- With SDK 10 only, it builds and tests `net10.0` only. That is fine for local work, but release packages must come from SDK 11.
+- CI installs SDKs 10 and 11, so the published package holds both targets.
+
 ### Local Build & Test
 
 ```bash
@@ -172,7 +180,8 @@ dotnet restore src/Ytx
 # Build
 dotnet build src/Ytx -c Release
 
-# Run the unit tests (on .NET 10 and 11; add -f net10.0 to use one runtime)
+# Run the unit tests (net10.0 and net11.0 with SDK 11, net10.0 only with SDK 10;
+# add -f net10.0 to use one runtime)
 dotnet test tests/Ytx.Tests -c Release
 
 # Test locally (choose an installed target framework)
@@ -248,7 +257,7 @@ The GitHub Actions workflow uses NuGet Trusted Publishing and does not need a st
 ## Dependencies
 
 - [YoutubeExplode](https://github.com/Tyrrrz/YoutubeExplode) — YouTube video data extraction
-- .NET 10 and 11 SDKs (for development; tests run on both)
+- .NET 10 SDK or later for development. SDK 11 builds both targets; see [SDK policy](#sdk-policy).
 
 ## License
 

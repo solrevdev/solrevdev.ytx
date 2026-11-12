@@ -24,7 +24,8 @@ This is `ytx`, a .NET Global Tool that extracts YouTube video metadata and trans
 ## Development Commands
 
 ```bash
-# Build and test locally
+# Build and test locally. global.json rolls forward to the latest SDK major.
+# SDK 11 builds net10.0 and net11.0; SDK 10 alone builds net10.0 only.
 dotnet restore src/Ytx
 dotnet build src/Ytx -c Release
 dotnet run --project src/Ytx --framework net10.0 "YOUTUBE_URL"
@@ -66,7 +67,7 @@ dotnet tool install -g solrevdev.ytx --add-source ./nupkg
 ## Key Dependencies
 
 - `YoutubeExplode` 6.6.2 - Core YouTube data extraction
-- .NET 10.0/11.0 target frameworks with nullable reference types enabled
+- .NET 10.0/11.0 target frameworks with nullable reference types enabled. net10.0 (LTS) is the baseline; net11.0 is added only when the SDK is 11 or later (a `NETCoreSdkVersion` condition in both csproj files). `global.json` pins SDK 10.0.100 with `rollForward: latestMajor`. CI installs SDKs 10 and 11 so the package ships both targets
 - System.Text.Json for serialization
 - System.Text.RegularExpressions for caption text normalization
 

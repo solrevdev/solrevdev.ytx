@@ -17,11 +17,13 @@ on:
     paths:
       - 'src/Ytx/**'
       - 'tests/Ytx.Tests/**'
+      - 'global.json'
       - '.github/workflows/publish.yml'
   push:
     branches: [master]
     paths:
       - 'src/Ytx/**'
+      - 'global.json'
       - '.github/workflows/publish.yml'
 
 permissions:
