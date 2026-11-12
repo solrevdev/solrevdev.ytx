@@ -50,9 +50,8 @@ jobs:
         uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5.4.0
         with:
           dotnet-version: |
-            8.0.x
-            9.0.x
             10.0.x
+            11.0.x
 
       - name: Restore
         run: |
@@ -67,6 +66,24 @@ jobs:
 
       - name: Pack
         run: dotnet pack "$PROJECT_DIR" --configuration Release --no-build
+
+      - name: Check package targets
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The targets depend on the SDK that built them; fail rather than
+          # ship a package missing one.
+          PACKAGES=("$NUPKG_DIR"/solrevdev.ytx.*.nupkg)
+          # unzip -l reads a second path as a member name, so insist on one package.
+          if [[ ${#PACKAGES[@]} -ne 1 || ! -f "${PACKAGES[0]}" ]]; then
+            echo "Expected one package in $NUPKG_DIR, found: ${PACKAGES[*]}" >&2
+            exit 1
+          fi
+          LISTING=$(unzip -l "${PACKAGES[0]}")
+          for tfm in net10.0 net11.0; do
+            grep -q "tools/$tfm/any/Ytx.dll" <<<"$LISTING" \
+              || { echo "Package is missing tools/$tfm" >&2; exit 1; }
+          done
 
   publish:
     if: github.event_name != 'pull_request'
@@ -84,9 +101,8 @@ jobs:
         uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5.4.0
         with:
           dotnet-version: |
-            8.0.x
-            9.0.x
             10.0.x
+            11.0.x
 
       - name: Determine and bump version
         id: bump
@@ -165,6 +181,24 @@ jobs:
 
       - name: Pack
         run: dotnet pack "$PROJECT_DIR" --configuration Release --no-build
+
+      - name: Check package targets
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The targets depend on the SDK that built them; fail rather than
+          # ship a package missing one.
+          PACKAGES=("$NUPKG_DIR"/solrevdev.ytx.*.nupkg)
+          # unzip -l reads a second path as a member name, so insist on one package.
+          if [[ ${#PACKAGES[@]} -ne 1 || ! -f "${PACKAGES[0]}" ]]; then
+            echo "Expected one package in $NUPKG_DIR, found: ${PACKAGES[*]}" >&2
+            exit 1
+          fi
+          LISTING=$(unzip -l "${PACKAGES[0]}")
+          for tfm in net10.0 net11.0; do
+            grep -q "tools/$tfm/any/Ytx.dll" <<<"$LISTING" \
+              || { echo "Package is missing tools/$tfm" >&2; exit 1; }
+          done
 
       - name: Verify package
         id: package

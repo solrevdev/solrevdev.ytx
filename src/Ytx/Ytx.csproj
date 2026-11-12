@@ -1,7 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <!-- The package must ship both targets; CI installs SDKs 10 and 11 so it does, while SDK 10 alone builds net10.0 only. -->
+    <TargetFrameworks>net10.0</TargetFrameworks>
+    <TargetFrameworks Condition="$([MSBuild]::VersionGreaterThanOrEquals('$(NETCoreSdkVersion)', '11.0'))">net10.0;net11.0</TargetFrameworks>
     <!-- A tool installs its highest TFM; without this it dies when that runtime is removed, as SDK 11's cask upgrade does. -->
     <RollForward>Major</RollForward>
     <ImplicitUsings>enable</ImplicitUsings>
