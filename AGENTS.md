@@ -70,6 +70,14 @@ dotnet tool install -g solrevdev.ytx --add-source ./nupkg
 - System.Text.Json for serialization
 - System.Text.RegularExpressions for caption text normalization
 
+## Native Builds and Benchmarks
+
+- `docs/investigations/` holds write-ups of past investigations. Start with `2026-10-native-aot-and-allocations.md`.
+- NativeAOT: `dotnet publish src/Ytx -c Release -f net10.0 -r <rid> -p:PublishAot=true`, then `scripts/aot/smoke-test.sh <binary>`. Keep JSON on the source-generated `YtxJsonContext`; reflection-based `JsonSerializer` calls break AOT.
+- `.github/workflows/native.yml` builds per-RID binaries and attaches them to a release. It does not publish to NuGet; `publish.yml` dispatches it with the new tag after each release.
+- `benchmarks/Ytx.Benchmarks/` is standalone and not part of CI. Never commit captured YouTube captions; `data/` is gitignored.
+- `packaging/` holds Homebrew and Scoop templates. They are not wired up yet.
+
 ## Repository Conventions
 
 ### Git commits

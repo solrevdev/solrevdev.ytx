@@ -1,0 +1,257 @@
+name: Native AOT (ytx)
+
+# Builds NativeAOT binaries for each platform, smoke-tests them offline, and attaches them to a
+# GitHub Release. This is separate from publish.yml on purpose: the NuGet tool release is unchanged.
+#
+# Trap: publish.yml creates releases with GITHUB_TOKEN, and events caused by GITHUB_TOKEN do not
+# start other workflows. So `release: published` only fires for releases made by a person (or a PAT).
+# publish.yml therefore dispatches this workflow with the new tag as its last step.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag (vX.Y.Z) to attach binaries to. Leave empty to build only.
+        required: false
+        default: ''
+        type: string
+  # No branch filter, so stacked PRs (based on another feature branch) also build.
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'scripts/aot/**'
+      - '.github/workflows/native.yml'
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-${{ github.event.release.tag_name || inputs.tag || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  PROJECT: src/Ytx/Ytx.csproj
+  TFM: net10.0
+  DOTNET_NOLOGO: 'true'
+  DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+
+jobs:
+  meta:
+    runs-on: ubuntu-latest
+    outputs:
+      ref: ${{ steps.meta.outputs.ref }}
+      tag: ${{ steps.meta.outputs.tag }}
+      version: ${{ steps.meta.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag || github.sha }}
+
+      - name: Determine version
+        id: meta
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          set -euo pipefail
+
+          CSPROJ_VERSION=$(sed -n 's:.*<Version>\([^<]*\)</Version>.*:\1:p' "$PROJECT")
+          TAG=${RELEASE_TAG:-$INPUT_TAG}
+
+          if [[ -n "$TAG" ]]; then
+            if [[ ! "$TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+              echo "Tag must look like vX.Y.Z: $TAG" >&2
+              exit 1
+            fi
+            VERSION=${BASH_REMATCH[1]}
+            if [[ "$VERSION" != "$CSPROJ_VERSION" ]]; then
+              echo "Tag $TAG does not match <Version>$CSPROJ_VERSION</Version> at that tag." >&2
+              exit 1
+            fi
+            REF=$TAG
+          else
+            # Build-only runs get a prerelease version so their binaries are never mistaken for a release.
+            VERSION="$CSPROJ_VERSION-ci.$RUN_NUMBER"
+            REF=$GITHUB_SHA
+          fi
+
+          echo "Version: $VERSION  Tag: ${TAG:-(none)}  Ref: $REF"
+          {
+            echo "version=$VERSION"
+            echo "tag=$TAG"
+            echo "ref=$REF"
+          } >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: meta
+    name: build (${{ matrix.rid }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: osx-arm64
+            os: macos-latest
+            smoke: true
+          # Cross-architecture: Xcode on the arm64 runner ships the x64 toolchain, so this needs no extra
+          # setup. The binary cannot run here (no Rosetta guarantee), so smoke-osx-x64 runs it on Intel.
+          - rid: osx-x64
+            os: macos-latest
+            smoke: false
+          # Build on the oldest supported Ubuntu: the binary needs the glibc it was linked against or newer.
+          - rid: linux-x64
+            os: ubuntu-22.04
+            smoke: true
+          - rid: linux-arm64
+            os: ubuntu-22.04-arm
+            smoke: true
+          - rid: win-x64
+            os: windows-latest
+            smoke: true
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ needs.meta.outputs.ref }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5.4.0
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install NativeAOT prerequisites (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang zlib1g-dev
+
+      - name: Publish NativeAOT
+        shell: bash
+        env:
+          RID: ${{ matrix.rid }}
+          VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          dotnet publish "$PROJECT" -c Release -f "$TFM" -r "$RID" \
+            -p:PublishAot=true -p:Version="$VERSION" -o out
+          ls -la out
+
+      - name: Stage binary
+        id: stage
+        shell: bash
+        env:
+          RID: ${{ matrix.rid }}
+          VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          exe=""
+          [[ "$RID" == win-* ]] && exe=".exe"
+
+          # The assembly is named Ytx; ship the command as lower-case ytx. Copy into a fresh folder
+          # instead of renaming in place, because macOS and Windows file systems ignore case.
+          mkdir -p pkg
+          cp "out/Ytx$exe" "pkg/ytx$exe"
+          cp README.md pkg/
+
+          name="ytx-$VERSION-$RID"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "binary=pkg/ytx$exe" >> "$GITHUB_OUTPUT"
+          du -h "pkg/ytx$exe"
+
+      - name: Report glibc requirement (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          echo "Highest GLIBC symbol version required:"
+          objdump -T pkg/ytx | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -1
+          ldd pkg/ytx
+
+      - name: Smoke test
+        if: matrix.smoke
+        shell: bash
+        env:
+          BINARY: ${{ steps.stage.outputs.binary }}
+          VERSION: ${{ needs.meta.outputs.version }}
+        run: scripts/aot/smoke-test.sh "$BINARY" "$VERSION"
+
+      - name: Archive (tar.gz)
+        if: runner.os != 'Windows'
+        shell: bash
+        env:
+          NAME: ${{ steps.stage.outputs.name }}
+        run: tar -czf "$NAME.tar.gz" -C pkg ytx README.md
+
+      - name: Archive (zip)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          NAME: ${{ steps.stage.outputs.name }}
+        run: Compress-Archive -Path pkg/* -DestinationPath "$env:NAME.zip"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: native-${{ matrix.rid }}
+          path: ${{ steps.stage.outputs.name }}.*
+          if-no-files-found: error
+          retention-days: 14
+
+  # GitHub's Intel macOS runner. GitHub has said x64 macOS runners end when the macOS 15 image
+  # retires (announced for fall 2027); after that, drop this job and ship osx-x64 untested or not at all.
+  smoke-osx-x64:
+    needs: [meta, build]
+    runs-on: macos-15-intel
+    steps:
+      - name: Checkout smoke test
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ needs.meta.outputs.ref }}
+          sparse-checkout: scripts/aot
+
+      - name: Download osx-x64 build
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: native-osx-x64
+          path: dist
+
+      - name: Smoke test
+        shell: bash
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir pkg
+          tar -xzf dist/ytx-*-osx-x64.tar.gz -C pkg
+          file pkg/ytx
+          scripts/aot/smoke-test.sh pkg/ytx "$VERSION"
+
+  release:
+    if: needs.meta.outputs.tag != ''
+    needs: [meta, build, smoke-osx-x64]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all builds
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: native-*
+          merge-multiple: true
+          path: dist
+
+      - name: Write SHA256SUMS
+        working-directory: dist
+        run: |
+          sha256sum ytx-* > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Upload release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.meta.outputs.tag }}
+        run: |
+          # --clobber makes a re-run replace the assets instead of failing on duplicates.
+          gh release upload "$TAG" dist/* --clobber --repo "$GITHUB_REPOSITORY"
