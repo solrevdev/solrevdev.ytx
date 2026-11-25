@@ -6,6 +6,20 @@ All notable changes to ytx are listed here. The format follows
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-11-25
+
+### Changed
+
+- YoutubeExplode 6.6.3.
+- Test packages: Microsoft.NET.Test.Sdk 18.12.0 and xunit.runner.visualstudio 4.0.1.
+- CI actions: checkout 7.0.1, setup-dotnet 6.1.0 and CodeQL 4.39.3.
+
+### Fixed
+
+- Dependabot now finds the NuGet projects. It looked in the repository root, which has no project file, so it never proposed a package update.
+
+## [1.3.0] - 2026-11-12
+
 ### Breaking
 
 - ytx now targets .NET 10 and 11 only. The net8.0 and net9.0 builds are gone because .NET 8 and 9 left support on 10 November 2026. A machine with only .NET 8 or 9 can no longer install new releases. It needs the .NET 10 or 11 runtime. Older ytx versions stay on NuGet for those machines.
@@ -111,7 +125,9 @@ This release fixes the caption bugs from the v1.0.7 review ([#3](https://github.
 
 - First release: title, description, raw transcript and Markdown transcript as JSON.
 
-[Unreleased]: https://github.com/solrevdev/solrevdev.ytx/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/solrevdev/solrevdev.ytx/compare/v1.3.1...HEAD
+[1.3.1]: https://github.com/solrevdev/solrevdev.ytx/compare/v1.3.0...v1.3.1
+[1.3.0]: https://github.com/solrevdev/solrevdev.ytx/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/solrevdev/solrevdev.ytx/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/solrevdev/solrevdev.ytx/compare/v1.0.8...v1.1.0
 [1.0.8]: https://github.com/solrevdev/solrevdev.ytx/compare/v1.0.7...v1.0.8
