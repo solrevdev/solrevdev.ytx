@@ -21,6 +21,6 @@
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
     <!-- Only the `capture` command uses this. Keep it on the same version as src/Ytx. -->
-    <PackageReference Include="YoutubeExplode" Version="6.6.2" />
+    <PackageReference Include="YoutubeExplode" Version="6.6.3" />
   </ItemGroup>
 </Project>
