@@ -9,8 +9,12 @@ updates:
       actions:
         patterns: ["*"]
 
+  # The root has no project or solution file, so name the project folders.
+  # `directory: /` finds nothing and Dependabot stays silent.
   - package-ecosystem: nuget
-    directory: /
+    directories:
+      - /src/*
+      - /tests/*
     schedule:
       interval: weekly
     groups:
