@@ -15,6 +15,7 @@ updates:
     directories:
       - /src/*
       - /tests/*
+      - /benchmarks/*
     schedule:
       interval: weekly
     groups:
