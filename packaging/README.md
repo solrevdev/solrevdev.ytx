@@ -118,5 +118,6 @@ winget is the default package manager on Windows 10 and 11, so it reaches more u
 
 .NET 10 can pack a tool as one package per runtime identifier, with NativeAOT binaries inside and a
 framework-dependent `any` fallback. `dotnet tool install` then links straight to the native binary.
-This was tested locally (see the investigation write-up) but it breaks installs on the .NET 8 and 9
-SDKs, so it belongs in a 2.0 release, if at all.
+This was tested locally (see the investigation write-up). It broke installs on the .NET 8 and 9 SDKs
+when ytx still supported them; since 1.3.0 ytx needs SDK 10 or later, so that blocker is gone. It is
+still a change to how the package installs, so it belongs in a release of its own, if at all.

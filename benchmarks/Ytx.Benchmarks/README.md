@@ -42,24 +42,25 @@ under `data/` becomes a benchmark parameter.
 
 ## Run it
 
-From this folder:
+From this folder. With SDK 11 the project builds `net10.0` and `net11.0`, so `dotnet run` needs `-f`;
+use `-f net11.0` to measure the newer runtime.
 
 ```bash
 dotnet build -c Release
 
 # Optional: write the synthetic datasets explicitly (benchmarks do this on first run)
-dotnet run -c Release -- generate
+dotnet run -c Release -f net10.0 -- generate
 
 # Optional: add real captions for local runs only
-dotnet run -c Release -- capture aCi6BhrvjhM NYFGCESmikA
-dotnet run -c Release -- capture -l fr "https://www.youtube.com/watch?v=VIDEO_ID"
+dotnet run -c Release -f net10.0 -- capture aCi6BhrvjhM NYFGCESmikA
+dotnet run -c Release -f net10.0 -- capture -l fr "https://www.youtube.com/watch?v=VIDEO_ID"
 
 # Check every variant produces exactly the bytes v1.0.7 would
-dotnet run -c Release -- verify
+dotnet run -c Release -f net10.0 -- verify
 
 # Run the benchmarks (BenchmarkDotNet filters and options pass through)
-dotnet run -c Release -- --filter '*'
-dotnet run -c Release -- --filter '*EndToEnd*' --job short
+dotnet run -c Release -f net10.0 -- --filter '*'
+dotnet run -c Release -f net10.0 -- --filter '*EndToEnd*' --job short
 
 # One cold run in a fresh process, the way a CLI pays for it (JIT and serialiser warm-up included)
 for v in baseline tier1 tier1sg tier2; do

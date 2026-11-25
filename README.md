@@ -46,7 +46,7 @@ A .NET global tool that extracts YouTube video metadata and transcripts as JSON.
 dotnet tool install -g solrevdev.ytx
 ```
 
-This needs the .NET 8, 9 or 10 SDK. To run ytx without .NET, use a [native binary](#native-binaries).
+This needs the .NET 10 or 11 SDK. To run ytx without .NET, use a [native binary](#native-binaries).
 
 ### Usage
 
@@ -133,7 +133,7 @@ Each GitHub Release from the first one after NativeAOT support also has a self-c
 
 | | NuGet tool | Native binary |
 |---|---|---|
-| Needs | .NET 8, 9 or 10 SDK | Nothing on macOS and Windows; OpenSSL and CA certificates on Linux |
+| Needs | .NET 10 or 11 SDK | Nothing on macOS and Windows; OpenSSL and CA certificates on Linux |
 | Install and update | `dotnet tool install/update -g` | Download an archive, or a package manager later (see below) |
 | Startup | about 38 ms | about 9 ms |
 | CPU for a real call | 300–400 ms (mostly JIT) | 47–73 ms |
